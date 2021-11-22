@@ -4,6 +4,7 @@ import ga
 import os
 import pandas as pd
 from tqdm import tqdm
+from sklearn.metrics import classification_report, precision_recall_fscore_support as score
 
 
 def test():
@@ -20,28 +21,64 @@ def test():
     return fitness
 
 
-def classification_test(lang, class_limit=0, limit=0, n=1):
-    data = load_langdata(lang)
-    reps = {}
-    all = [x.split("_")[1] for x in data["lemma"].columns]
+def do_classification(df, name):
+    print(name+" > ")
+    df['guess'] = df[df.columns].idxmin(axis=1)
+    guesses = []
+    correct = []
+    for i, row in df.iterrows():
+        guesses.append(row["guess"].split("_")[0])
+        correct.append(i.split("_")[0])
 
-    for a in all:
-        if a in reps.keys():
-            reps[a] += 1
-        else:
-            reps[a] = 1
+    print(classification_report(correct, guesses, zero_division=1, digits=3))
+
+
+
+def classification_test(lang, single_limit=0, class_limit=0, item_limit=0, n=1):
+    data = load_langdata(lang)
+    novels = data["lemma"].columns
+    authors = [x.split("_")[0] for x in novels]
+    authors = list(set(authors))
+    authors_novels = {}
+
+    for a in authors:
+        authors_novels[a] = [x for x in novels if x.split("_")[0] == a]
 
     single = []
-
-    for a in reps:
-        if reps[a] == 1:
-            single.append(a)
-
-
-
     classes = []
     items = []
 
+    for a in authors_novels:
+        nn = len(authors_novels[a])
+        if nn == 1:
+            single.append(authors_novels[a][0])
+        else:
+            pick = numpy.random.randint(0, nn)
+            for i, x in enumerate(authors_novels[a]):
+                if i == pick:
+                    classes.append(authors_novels[a][i])
+                else:
+                    items.append(authors_novels[a][i])
+
+    for _ in range(0, n):
+
+        if single_limit > 0:
+            single = numpy.random.choice(single, single_limit)
+        if class_limit > 0:
+            classes = numpy.random.choice(classes, class_limit)
+        if item_limit > 0:
+            items = numpy.random.choice(items, item_limit)
+
+        all_classes = single + classes
+
+        for df_name in data:
+            df = data[df_name]
+            if df.columns.tolist()[0] == "Unnamed: 0":
+                df = df.set_index("Unnamed: 0")
+            df = df.drop(index=[x for x in novels if x not in items],
+                         columns=[y for y in novels if y not in all_classes])
+
+            do_classification(df, df_name)
 
 
 def load_langdata(lang):
@@ -220,3 +257,4 @@ def get_weights():
 
 #generate_csvs()
 #fitness_comparison()
+classification_test("rs")
