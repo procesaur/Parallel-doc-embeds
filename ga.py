@@ -6,6 +6,7 @@ import seaborn as sns
 # Install PyGAD: pip install pygad
 # PyGAD source code at GitHub: https://github.com/ahmedfgad/GeneticAlgorithmPython
 
+
 def get_error_hist(x1, x2, bins=100):
     h1 = numpy.histogram(x1, bins=bins, density=True)
     h2 = numpy.histogram(x2, bins=bins, density=True)
@@ -57,50 +58,6 @@ def eltec_single_fitness(distances):
                     bad.append(val)
 
     return get_error(good, bad)
-
-def eltec_fitness(distances, pop, method):
-    fitness = []
-    onedf = distances[list(distances.keys())[0]]
-
-    cols = onedf.columns.tolist()
-    rows = onedf.index.tolist()
-
-    for peep in pop:
-        if method == "mult":
-            data = pd.DataFrame(numpy.ones((100, 100)), columns=cols, index=rows)
-        else:
-            data = pd.DataFrame(numpy.zeros((100, 100)), columns=cols, index=rows)
-
-        for i, inc in enumerate(distances.keys()):
-            if method == "mult":
-                data = data * (distances[inc] + peep[i])
-            else:
-                data = data + (distances[inc] * peep[i])
-
-        if method != "mult":
-            data = data/len(distances.keys())
-
-
-        good = []
-        bad = []
-
-        if method == "mult":
-            df = data - numpy.prod(peep)
-        else:
-            df = data
-
-        for row in rows:
-            for col in cols:
-                val = df.loc[row, col]
-                if val != 0:
-                    if col.split("_")[0] == row.split("_")[0]:
-                        good.append(val)
-                    else:
-                        bad.append(val)
-
-        fitness.append(get_error(good, bad))
-
-    return fitness
 
 
 def cal_pop_fitness(equation_inputs, pop):
