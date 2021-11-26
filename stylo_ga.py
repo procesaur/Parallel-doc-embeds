@@ -121,7 +121,8 @@ def get_loss(df):
     loss = []
     for index, row in df.iterrows():
         p = []
-        q = softmax([1-x for x in row.tolist() if x != 0])
+        qlist = [x for x in row.tolist() if x != 0]
+        q = softmax([max(qlist)-x for x in qlist])
         rowdict = row.to_dict()
         for col in rowdict:
             if rowdict[col] != 0:
@@ -130,15 +131,17 @@ def get_loss(df):
                 else:
                     p.append(0)
 
-        cel = -sum([p[i]*numpy.log2(q[i]) for i in range(len(p))])
-        loss.append(cel)
+        cel = ([p[i]*numpy.log2(q[i]) for i in range(len(p)) if p[i]!=0])
+        if cel:
+            loss.append(-average_list(cel))
+
 
     loss = [x for x in loss if x != 0]
     lossX = average_list(loss)
     return lossX
 
 
-def classification_test(lang, single_limit=0, class_limit=0, item_limit=0, n=30):
+def classification_test(lang, single_limit=0, class_limit=0, item_limit=0, n=100):
     data = load_langdata(lang)
     novels = data["lemma"].columns
     authors = [x.split("_")[0] for x in novels]
@@ -258,9 +261,9 @@ def generate_csvs():
         info = x.rstrip().split("\t")
         ln = info[0]
         method = info[1]
-        l = info[2]
-        p = info[3]
-        w = info[4]
+        l = float(info[2])
+        p = float(info[3])
+        w = float(info[4])
 
         lemma[method][ln] = l
         pos[method][ln] = p
@@ -348,10 +351,10 @@ def all_classification_report():
     langs = get_langs()
     for lang in langs:
         print(lang + "  > ")
-        classification_test(lang, n=10, single_limit=0)
+        classification_test(lang, n=10, single_limit=10)
 
 
 #generate_csvs()
 #fitness_comparison()
-#all_classification_report()
-get_weights()
+all_classification_report()
+#get_weights()
