@@ -1,10 +1,9 @@
 import json
-import numpy
-import ga
-import os
-import pandas as pd
 from tqdm import tqdm
 from sklearn.metrics import classification_report, precision_recall_fscore_support as score, accuracy_score
+
+from helpers import *
+import ga
 
 
 def eltec_fitness(distances, pop, method):
@@ -53,20 +52,6 @@ def eltec_fitness(distances, pop, method):
     return fitness
 
 
-def test():
-    data = load_langdata("de")
-    lemma = 7.27
-    pos = 2.68
-    word = 0.52
-
-    df = (data["lemma"]+lemma)*(data["pos"]+pos)*(data["word"]+word)
-    val = lemma*pos*word
-    df = (df - val)/20
-    fitness = ga.eltec_single_fitness(df)
-    i=1
-    return fitness
-
-
 def classify_and_report(df):
 
     df['guess'] = df[df.columns].idxmin(axis=1)
@@ -83,36 +68,6 @@ def classify_and_report(df):
     acc = accuracy_score(correct, guesses)
     vals = [macro_prec, macro_rcl, macro_f, acc]
     return vals
-
-
-def sum_lists(a1, a2):
-    sum = []
-    for (x, y) in zip(a1, a2):
-        sum.append(x + y)
-    return sum
-
-
-def divide_list(a1, n):
-    div = []
-    for x in a1:
-        div.append(x/n)
-    return div
-
-
-def invert_list(a1):
-    inv = []
-    for x in a1:
-        inv.append(1/x)
-    return inv
-
-
-def average_list(a1):
-    return sum(a1)/len(a1)
-
-
-def softmax(vector):
-    e = numpy.exp(vector)
-    return e / e.sum()
 
 
 def get_loss(df):
@@ -141,7 +96,7 @@ def get_loss(df):
     return lossX
 
 
-def classification_test(lang, single_limit=0, class_limit=0, item_limit=0, n=100, hard=True):
+def classification_test(lang, single_limit=0, class_limit=0, item_limit=0, n=100):
     data = load_langdata(lang)
     novels = data["lemma"].columns
     authors = [x.split("_")[0] for x in novels]
@@ -156,9 +111,6 @@ def classification_test(lang, single_limit=0, class_limit=0, item_limit=0, n=100
     items = []
     results = {}
     loss = {}
-
-    for df_name in data:
-        loss[df_name] = get_loss(data[df_name])
 
     for a in authors_novels:
         nn = len(authors_novels[a])
@@ -182,13 +134,10 @@ def classification_test(lang, single_limit=0, class_limit=0, item_limit=0, n=100
             items = numpy.random.choice(items, item_limit).tolist()
 
         all_classes = single + classes
-        class_novels = ["_".join(item.split('_', 2)[:2]) for item in all_classes]
-        item_novels = ["_".join(item.split('_', 2)[:2]) for item in items]
+        class_novels = list(set(["_".join(item.split('_', 2)[:2]) for item in all_classes]))
+        item_novels = list(set(["_".join(item.split('_', 2)[:2]) for item in items]))
 
-        if hard:
-            items = [item for item in items if "_".join(item.split('_', 2)[:2]) not in class_novels]
-        else:
-            all_classes = [item for item in all_classes if "_".join(item.split('_', 2)[:2]) not in item_novels]
+        items = [item for item in items if "_".join(item.split('_', 2)[:2]) not in class_novels]
 
         for df_name in data:
             df = data[df_name]
@@ -206,24 +155,13 @@ def classification_test(lang, single_limit=0, class_limit=0, item_limit=0, n=100
         for df_name in results:
             results[df_name] = divide_list(results[df_name], n)
 
-    print("\t".join(["model",  "prec", "rec", "f1", "acc", "loss"]))
+    for df_name in data:
+        loss[df_name] = get_loss(data[df_name])
+
+    print("\t".join(["model", "prec", "rec", "f1", "acc", "loss"]))
     for df_name in ["word", "pos", "lemma", "add", "mult", "add_w", "mult_w"]:
     #for df_name in results:
         print(df_name+"\t" + "\t".join([str(round(x, 4)) for x in results[df_name]]) + "\t" + str(loss[df_name]))
-
-
-def load_langdata(lang, ex=False):
-    dir = "./data/" + lang
-    distances = {}
-    if ex:
-        ex_list = ["results", "add", "add_w", "mult", "mult_w"]
-    else:
-        ex_list = ["results"]
-    for incarnation in os.listdir(dir):
-        i_name = os.path.splitext(incarnation)[0]
-        if i_name not in ex_list:
-            distances[i_name] = pd.read_csv(dir + "/" + incarnation, sep=" ")
-    return distances
 
 
 def generate_comp(lemma, pos, word, method, lang, name):
@@ -235,25 +173,6 @@ def generate_comp(lemma, pos, word, method, lang, name):
         ind = data["lemma"].index.tolist()
     df.to_csv(path_or_buf="./data/"+lang+"/"+name+".csv", sep=" ")
     return df
-
-
-def get_langs(path="./data"):
-    return next(os.walk(path))[1]
-
-
-def fitness_comparison():
-
-    langs = get_langs()
-    for lang in langs:
-        print(lang+": ")
-        df = load_langdata(lang)
-        for data in ["word", "lemma", "pos", "add", "mult", "add_w", "mult_w"]:
-            if df[data].columns.tolist()[0] == "Unnamed: 0":
-                df[data] = df[data].set_index("Unnamed: 0")
-
-
-            fitness = ga.eltec_single_fitness(df[data])
-            print(data+ " > " + str(fitness))
 
 
 def generate_csvs():
@@ -287,7 +206,7 @@ def generate_csvs():
                 generate_comp(lemma[method][lang], pos[method][lang], word[method][lang], method, lang, method+"_w")
 
 
-def get_weights(out="weights2.csv"):
+def generate_weights(out="weights2.csv"):
     sol_per_pop = 12
     num_parents_mating = 4
     num_generations = 100
@@ -364,4 +283,3 @@ def all_classification_report():
 #generate_csvs()
 #fitness_comparison()
 all_classification_report()
-#get_weights()
