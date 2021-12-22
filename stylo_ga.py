@@ -77,7 +77,7 @@ def get_loss(df):
     for index, row in df.iterrows():
         p = []
         rowdict = row.to_dict()
-        qlist = [rowdict[x] for x in rowdict if x.split("_")[1] != index.split("_")[1]]
+        qlist = [float(rowdict[x]) for x in rowdict if x.split("_")[1] != index.split("_")[1]]
         q = softmax([max(qlist)-x for x in qlist])
 
         for col in rowdict:
@@ -159,7 +159,9 @@ def classification_test(lang, single_limit=0, class_limit=0, item_limit=0, n=100
         loss[df_name] = get_loss(data[df_name])
 
     print("\t".join(["model", "prec", "rec", "f1", "acc", "loss"]))
-    for df_name in ["word", "pos", "lemma", "add", "mult", "add_w", "mult_w"]:
+    embeds = ["word", "pos", "lemma", "add", "mult", "add_w", "mult_w"]
+    embeds = ["bert", "word", "pos", "lemma"]
+    for df_name in embeds:
     #for df_name in results:
         print(df_name+"\t" + "\t".join([str(round(x, 4)) for x in results[df_name]]) + "\t" + str(loss[df_name]))
 
@@ -282,4 +284,5 @@ def all_classification_report():
 
 #generate_csvs()
 #fitness_comparison()
-all_classification_report()
+#all_classification_report()
+classification_test("srp", n=1, single_limit=0)

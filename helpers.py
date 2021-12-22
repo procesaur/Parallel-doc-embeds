@@ -34,7 +34,7 @@ def softmax(vector):
 
 
 def load_langdata(lang, ex=False):
-    dir = "./data/" + lang
+    dir = "./data/document_embeds/" + lang
     distances = {}
     if ex:
         ex_list = ["results", "add", "add_w", "mult", "mult_w"]
@@ -47,6 +47,6 @@ def load_langdata(lang, ex=False):
     return distances
 
 
-def get_langs(path="./data"):
+def get_langs(path="./data/document_embeds"):
     return next(os.walk(path))[1]
 
