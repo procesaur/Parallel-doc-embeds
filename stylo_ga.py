@@ -71,8 +71,7 @@ def classify_and_report(df):
 
 
 def get_loss(df):
-    if df.columns.tolist()[0] == "Unnamed: 0":
-        df = df.set_index("Unnamed: 0")
+
     loss = []
     for index, row in df.iterrows():
         p = []
@@ -96,15 +95,28 @@ def get_loss(df):
     return lossX
 
 
-def classification_test(lang, single_limit=0, class_limit=0, item_limit=0, n=100):
+def a_n(lang, plus=False):
     data = load_langdata(lang)
-    novels = data["lemma"].columns
+    chunks = data["lemma"].columns
+    novels = list(set([x.split("_")[0] + "_" + x.split("_")[1] for x in chunks]))
     authors = [x.split("_")[0] for x in novels]
     authors = list(set(authors))
     authors_novels = {}
 
     for a in authors:
-        authors_novels[a] = [x for x in novels if x.split("_")[0] == a]
+        authors_novels[a] = dict.fromkeys([x for x in novels if x.split("_")[0] == a])
+        for n in authors_novels[a]:
+            authors_novels[a][n] = [x for x in chunks if x.split("_")[0] + "_" + x.split("_")[1] == n]
+
+    if plus:
+        return authors_novels, authors, novels, chunks
+    else:
+        return authors_novels
+
+
+def classification_test(lang):
+    data = load_langdata(lang)
+    authors_novels, authors, novels, chunks = a_n(lang, plus=True)
 
     single = []
     classes = []
@@ -115,45 +127,29 @@ def classification_test(lang, single_limit=0, class_limit=0, item_limit=0, n=100
     for a in authors_novels:
         nn = len(authors_novels[a])
         if nn == 1:
-            single.append(authors_novels[a][0])
+            single.extend(authors_novels[a][list(authors_novels[a].keys())[0]])
         else:
-            pick = numpy.random.randint(0, nn)
-            for i, x in enumerate(authors_novels[a]):
-                if i == pick:
-                    classes.append(authors_novels[a][i])
-                else:
-                    items.append(authors_novels[a][i])
 
-    for i in range(0, n):
+            for x in authors_novels[a]:
+                pick = numpy.random.randint(0, nn)
+                for i, y in enumerate(authors_novels[a][x]):
+                    if i == pick:
+                        classes.append(authors_novels[a][x][i])
+                    else:
+                        items.append(authors_novels[a][x][i])
 
-        if single_limit > 0:
-            single = numpy.random.choice(single, single_limit).tolist()
-        if class_limit > 0:
-            classes = numpy.random.choice(classes, class_limit).tolist()
-        if item_limit > 0:
-            items = numpy.random.choice(items, item_limit).tolist()
+    all_classes = single + classes
+    class_novels = list(set(["_".join(item.split('_', 2)[:2]) for item in all_classes]))
+    item_novels = list(set(["_".join(item.split('_', 2)[:2]) for item in items]))
 
-        all_classes = single + classes
-        class_novels = list(set(["_".join(item.split('_', 2)[:2]) for item in all_classes]))
-        item_novels = list(set(["_".join(item.split('_', 2)[:2]) for item in items]))
+    #items = [item for item in items if "_".join(item.split('_', 2)[:2]) not in class_novels]
 
-        items = [item for item in items if "_".join(item.split('_', 2)[:2]) not in class_novels]
+    for df_name in data:
+        df = data[df_name]
+        df = df.drop(index=[x for x in chunks if x not in items],
+                     columns=[y for y in chunks if y not in all_classes])
 
-        for df_name in data:
-            df = data[df_name]
-            if df.columns.tolist()[0] == "Unnamed: 0":
-                df = df.set_index("Unnamed: 0")
-            df = df.drop(index=[x for x in novels if x not in items],
-                         columns=[y for y in novels if y not in all_classes])
-
-            if i == 0:
-                results[df_name] = classify_and_report(df)
-            else:
-                results[df_name] = sum_lists(results[df_name], classify_and_report(df))
-
-    if n > 1:
-        for df_name in results:
-            results[df_name] = divide_list(results[df_name], n)
+        results[df_name] = classify_and_report(df)
 
     for df_name in data:
         loss[df_name] = get_loss(data[df_name])
@@ -161,8 +157,8 @@ def classification_test(lang, single_limit=0, class_limit=0, item_limit=0, n=100
     print("\t".join(["model", "prec", "rec", "f1", "acc", "loss"]))
     embeds = ["word", "pos", "lemma", "add", "mult", "add_w", "mult_w"]
     embeds = ["bert", "word", "pos", "lemma"]
-    for df_name in embeds:
-    #for df_name in results:
+
+    for df_name in results:
         print(df_name+"\t" + "\t".join([str(round(x, 4)) for x in results[df_name]]) + "\t" + str(loss[df_name]))
 
 
@@ -279,10 +275,25 @@ def all_classification_report():
     langs = get_langs()
     for lang in langs:
         print(lang + "  > ")
-        classification_test(lang, n=50, single_limit=0)
+        classification_test(lang)
 
 
-#generate_csvs()
-#fitness_comparison()
-#all_classification_report()
-classification_test("srp", n=1, single_limit=0)
+def ga_train_test_set():
+    langs = get_langs()
+    for lang in langs:
+        authors_novels = a_n(lang)
+
+        test_set_x = []
+        test_set_y = []
+        i = 0
+        for author in authors_novels:
+            if len(authors_novels[author]) > 2:
+
+                i += 1
+        print(i)
+
+# generate_csvs()
+# fitness_comparison()
+# all_classification_report()
+classification_test("srp")
+#ga_train_test_set()
