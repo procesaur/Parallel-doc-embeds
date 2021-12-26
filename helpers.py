@@ -45,11 +45,11 @@ def load_langdata(lang, ex=False):
 
         i_name = os.path.splitext(incarnation)[0]
         if i_name not in from_r:
-            sepr = ","
+            sepr = ",|;"
         else:
             sepr = " "
         if i_name not in ex_list:
-            distances[i_name] = pd.read_csv(dir + "/" + incarnation, sep=sepr)
+            distances[i_name] = pd.read_csv(dir + "/" + incarnation, sep=sepr, engine='python')
 
     chunks = distances["lemma"].columns
     colnamesx = {}
