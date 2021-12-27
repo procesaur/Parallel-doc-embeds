@@ -122,37 +122,16 @@ def classification_test(lang):
     data = load_langdata(lang)
     authors_novels, authors, novels, chunks = a_n(lang, plus=True)
 
-    single = []
-    classes = []
-    items = []
     results = {}
     loss = {}
 
-    for a in authors_novels:
-        nn = len(authors_novels[a])
-        if nn == 1:
-            single.extend(authors_novels[a][list(authors_novels[a].keys())[0]])
-        else:
-
-            for x in authors_novels[a]:
-                pick = numpy.random.randint(0, nn)
-                for i, y in enumerate(authors_novels[a][x]):
-                    if i == pick:
-                        classes.append(authors_novels[a][x][i])
-                    else:
-                        items.append(authors_novels[a][x][i])
-
-    all_classes = single + classes
-    class_novels = list(set(["_".join(item.split('_', 2)[:2]) for item in all_classes]))
-    item_novels = list(set(["_".join(item.split('_', 2)[:2]) for item in items]))
-
-    #items = [item for item in items if "_".join(item.split('_', 2)[:2]) not in class_novels]
+    items, classes = get_test_set(authors_novels)
 
     for df_name in data:
-        df = data[df_name]
-        df = df.drop(index=all_classes, columns=items)
+        data[df_name] = data[df_name].drop(index=[x for x in chunks if x not in items],
+                                           columns=[x for x in chunks if x not in classes])
 
-        results[df_name] = classify_and_report(df)
+        results[df_name] = classify_and_report(data[df_name])
 
     #for df_name in data:
     #    loss[df_name] = get_loss(data[df_name])
@@ -305,31 +284,34 @@ def all_classification_report():
         classification_test(lang)
 
 
-def ga_train_test_set():
-    langs = get_langs()
-    for lang in langs:
-        authors_novels = a_n(lang)
-        testch = {}  # {"x":[], "y":[]}
-        i = 0
-        for author in authors_novels:
-            novels_with_n_chunks = [x for x in authors_novels[author] if len(authors_novels[author][x])>2]
-            # if there is at list n such novels
-            if len(novels_with_n_chunks) > 2:
-                try:
-                    ablenovs = random.sample(novels_with_n_chunks, 3)
-                except:
-                    print(author)
+def get_test_set(authors_novels):
+    random.seed(22)
+    items = []
+    classes = []
+    i = 0
+    for author in authors_novels:
+
+        novels_with_n_chunks = [x for x in authors_novels[author] if len(authors_novels[author][x])>2]
+        # if there is at list n such novels
+        if len(novels_with_n_chunks) > 2:
+            try:
+                ablenovs = random.sample(novels_with_n_chunks, 3)
+            except:
+                print(author)
+        else:
+            ablenovs = []
+
+        pick = 1
+        for i, novel in enumerate(ablenovs):
+            if i == pick:
+                classes += random.sample(authors_novels[author][novel], 3)
             else:
-                ablenovs = []
-            for novel in ablenovs:
-                try:
-                    testch[novel] = random.sample(authors_novels[author][novel], 3)
-                except:
-                    print(novel)
-        print(lang + ">>" + str(len(testch)))
+                items += random.sample(authors_novels[author][novel], 3)
+            #testch[novel] = random.sample(authors_novels[author][novel], 3)
+
+    return items, classes
 
 #generate_csvs()
 # fitness_comparison()
 #all_classification_report()
 classification_test("srp")
-#ga_train_test_set()
