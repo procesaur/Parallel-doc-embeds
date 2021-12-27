@@ -97,8 +97,11 @@ def get_loss(df):
 
 def a_n(lang, plus=False):
     data = load_langdata(lang)
-    chunks = data["lemma"].columns
-    novels = list(set([x.split("_")[0] + "_" + x.split("_")[1] for x in chunks]))
+    chunks = [x for x in data["lemma"].columns if x!= "Unnamed: 0"]
+    try:
+        novels = list(set([x.split("_")[0] + "_" + x.split("_")[1] for x in chunks]))
+    except:
+        print([x for x in chunks if "_" not in x])
     authors = [x.split("_")[0] for x in novels]
     authors = list(set(authors))
     authors_novels = {}
@@ -146,8 +149,9 @@ def classification_test(lang):
 
     for df_name in data:
         df = data[df_name]
-        df = df.drop(index=[x for x in chunks if x not in items],
-                     columns=[y for y in chunks if y not in all_classes])
+        ind = [x for x in chunks if x not in items]
+        cor = [y for y in chunks if y not in all_classes]
+        df = df.drop(index=all_classes,  columns=items)
 
         results[df_name] = classify_and_report(df)
 

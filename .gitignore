@@ -8,8 +8,10 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+data/stylo_freq
 data/chunks
 data/document_models
+data/document_embeds2
 .idea/
 build/
 develop-eggs/

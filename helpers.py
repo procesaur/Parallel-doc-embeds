@@ -34,9 +34,9 @@ def softmax(vector):
 
 
 def load_langdata(lang, ex=False):
-    dir = "./data/document_embeds/" + lang
+    dir = "./data/document_embeds2/" + lang
     distances = {}
-    from_r = ["lemma", "pos", "word"]
+    from_r = ["lemma", "pos", "word", "masked_1", "masked_2", "masked_3", "masked_4", "masked_5"]
     if ex:
         ex_list = ["results", "add", "add_w", "mult", "mult_w"]
     else:
@@ -49,7 +49,7 @@ def load_langdata(lang, ex=False):
         else:
             sepr = " "
         if i_name not in ex_list:
-            distances[i_name] = pd.read_csv(dir + "/" + incarnation, sep=sepr, engine='python')
+            distances[i_name] = pd.read_csv(dir + "/" + incarnation, sep=sepr, engine='python', index_col=0)
 
     chunks = distances["lemma"].columns
     colnamesx = {}
