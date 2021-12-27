@@ -36,18 +36,13 @@ def softmax(vector):
 def load_langdata(lang, ex=False):
     dir = "./data/document_embeds/" + lang
     distances = {}
-    from_r = ["lemma", "pos", "word", "masked_1", "masked_2", "masked_3", "masked_4", "masked_5", "mult", "add"]
     if ex:
         ex_list = ["results", "add", "add_w", "mult", "mult_w"]
     else:
         ex_list = ["results"]
     for incarnation in os.listdir(dir):
-
         i_name = os.path.splitext(incarnation)[0]
-        if i_name not in from_r:
-            sepr = ",|;"
-        else:
-            sepr = " "
+        sepr = " "
         if i_name not in ex_list:
             distances[i_name] = pd.read_csv(dir + "/" + incarnation, sep=sepr, engine='python', index_col=0)
 
@@ -58,14 +53,12 @@ def load_langdata(lang, ex=False):
         rownamesx[i] = chunk
         colnamesx[str(i)] = chunk
 
-    for from_bert in distances:
-        if from_bert not in from_r:
-            if distances[from_bert].columns.tolist()[0] == "Unnamed: 0":
-                distances[from_bert] = distances[from_bert].set_index("Unnamed: 0")
-            distances[from_bert].rename(rownamesx, inplace=True, axis=0)
-            distances[from_bert].rename(colnamesx, inplace=True, axis=1)
-
-            distances[from_bert] = distances[from_bert].transform(lambda x: 1-x)
+    for d in distances:
+        if distances[d].columns.tolist()[0] == "Unnamed: 0":
+            distances[d] = distances[d].set_index("Unnamed: 0")
+        distances[d].rename(rownamesx, inplace=True, axis=0)
+        distances[d].rename(colnamesx, inplace=True, axis=1)
+        distances[d] = distances[d].transform(lambda x: 1-x)
 
     return distances
 

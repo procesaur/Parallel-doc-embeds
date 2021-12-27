@@ -1,4 +1,5 @@
 import json
+import random
 from tqdm import tqdm
 from sklearn.metrics import classification_report, precision_recall_fscore_support as score, accuracy_score
 
@@ -149,9 +150,7 @@ def classification_test(lang):
 
     for df_name in data:
         df = data[df_name]
-        ind = [x for x in chunks if x not in items]
-        cor = [y for y in chunks if y not in all_classes]
-        df = df.drop(index=all_classes,  columns=items)
+        #df = df.drop(index=all_classes, columns=items)
 
         results[df_name] = classify_and_report(df)
 
@@ -310,18 +309,27 @@ def ga_train_test_set():
     langs = get_langs()
     for lang in langs:
         authors_novels = a_n(lang)
-
-        test_set_x = []
-        test_set_y = []
+        testch = {}  # {"x":[], "y":[]}
         i = 0
         for author in authors_novels:
-            if len(authors_novels[author]) > 2:
+            novels_with_n_chunks = [x for x in authors_novels[author] if len(authors_novels[author][x])>2]
+            # if there is at list n such novels
+            if len(novels_with_n_chunks) > 2:
+                try:
+                    ablenovs = random.sample(novels_with_n_chunks, 3)
+                except:
+                    print(author)
+            else:
+                ablenovs = []
+            for novel in ablenovs:
+                try:
+                    testch[novel] = random.sample(authors_novels[author][novel], 3)
+                except:
+                    print(novel)
+        print(lang + ">>" + str(len(testch)))
 
-                i += 1
-        print(i)
-
-generate_csvs()
+#generate_csvs()
 # fitness_comparison()
-all_classification_report()
-# classification_test("srp")
-# ga_train_test_set()
+#all_classification_report()
+classification_test("srp")
+#ga_train_test_set()
