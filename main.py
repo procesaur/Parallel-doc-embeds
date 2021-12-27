@@ -284,6 +284,11 @@ def all_classification_report():
         classification_test(lang)
 
 
+def get_test_set2(authors_novels):
+    items = []
+    classes = []
+
+
 def get_test_set(authors_novels):
     random.seed(22)
     items = []
