@@ -150,7 +150,7 @@ def classification_test(lang):
 
     for df_name in data:
         df = data[df_name]
-        #df = df.drop(index=all_classes, columns=items)
+        df = df.drop(index=all_classes, columns=items)
 
         results[df_name] = classify_and_report(df)
 

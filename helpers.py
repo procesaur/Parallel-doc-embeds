@@ -58,7 +58,8 @@ def load_langdata(lang, ex=False):
             distances[d] = distances[d].set_index("Unnamed: 0")
         distances[d].rename(rownamesx, inplace=True, axis=0)
         distances[d].rename(colnamesx, inplace=True, axis=1)
-        distances[d] = distances[d].transform(lambda x: 1-x)
+        if d == "bert":
+            distances[d] = distances[d].transform(lambda x: 1-x)
 
     return distances
 
