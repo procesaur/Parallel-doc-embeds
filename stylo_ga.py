@@ -155,15 +155,15 @@ def classification_test(lang):
 
         results[df_name] = classify_and_report(df)
 
-    for df_name in data:
-        loss[df_name] = get_loss(data[df_name])
+    #for df_name in data:
+    #    loss[df_name] = get_loss(data[df_name])
 
-    print("\t".join(["model", "prec", "rec", "f1", "acc", "loss"]))
+    print("\t".join(["model", "prec", "rec", "f1", "acc"]))
     embeds = ["word", "pos", "lemma", "add", "mult", "add_w", "mult_w"]
     embeds = ["bert", "word", "pos", "lemma"]
 
     for df_name in results:
-        print(df_name+"\t" + "\t".join([str(round(x, 4)) for x in results[df_name]]) + "\t" + str(loss[df_name]))
+        print(df_name+"\t" + "\t".join([str(round(x, 4)) for x in results[df_name]]))
 
 
 def generate_comp(lemma, pos, word, method, lang, name):
