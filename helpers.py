@@ -34,9 +34,9 @@ def softmax(vector):
 
 
 def load_langdata(lang, ex=False):
-    dir = "./data/document_embeds2/" + lang
+    dir = "./data/document_embeds/" + lang
     distances = {}
-    from_r = ["lemma", "pos", "word", "masked_1", "masked_2", "masked_3", "masked_4", "masked_5"]
+    from_r = ["lemma", "pos", "word", "masked_1", "masked_2", "masked_3", "masked_4", "masked_5", "mult", "add"]
     if ex:
         ex_list = ["results", "add", "add_w", "mult", "mult_w"]
     else:
