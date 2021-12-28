@@ -305,11 +305,6 @@ def all_classification_report():
         classification_test(lang)
 
 
-def get_test_set2(authors_novels):
-    items = []
-    classes = []
-
-
 def get_author_single(authors_novels):
 
     list = []
@@ -320,28 +315,25 @@ def get_author_single(authors_novels):
 
 
 def get_test_set(authors_novels):
-    random.seed(22)
+    random.seed(1)
+    rand1 = random.randint(0, 2)
+    rand2 = random.randint(0, 2)
     items = []
     classes = []
-    i = 0
     for author in authors_novels:
 
         novels_with_n_chunks = [x for x in authors_novels[author] if len(authors_novels[author][x])>2]
         # if there is at list n such novels
         if len(novels_with_n_chunks) > 2:
-            try:
-                ablenovs = random.sample(novels_with_n_chunks, 3)
-            except:
-                print(author)
+            ablenovs = novels_with_n_chunks[:3]
         else:
             ablenovs = []
 
-        pick = 1
         for i, novel in enumerate(ablenovs):
-            if i == pick:
-                classes += random.sample(authors_novels[author][novel], 3)
+            if i == rand1:
+                classes.append(authors_novels[author][novel][rand2])
             else:
-                items += random.sample(authors_novels[author][novel], 3)
+                items += authors_novels[author][novel][:3]
             #testch[novel] = random.sample(authors_novels[author][novel], 3)
 
     return items, classes
