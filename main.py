@@ -5,6 +5,8 @@ from sklearn.metrics import classification_report, precision_recall_fscore_suppo
 
 from helpers import *
 import ga
+import math
+import numpy as np
 
 
 def eltec_fitness(distances, pop, method):
@@ -144,12 +146,12 @@ def classification_test(lang, easy=False):
             for x in chunks:
                 for y in chunks:
                     xs = x.split("_")
-                    if xs in single_authors:
+                    if xs[0] in single_authors:
                         drop_items.append(x)
                     else:
                         ys = y.split("_")
                         if xs[0] == ys[0] and xs[1] == ys[1]:
-                            df_hard.at[x, y] = 1
+                            df_hard.at[x, y] = np.inf
 
             df_hard = df_hard.drop(index=drop_items)
             results_hard[df_name] = classify_and_report(df_hard)
@@ -179,34 +181,57 @@ def generate_comp(lemma, pos, word, method, lang, name):
     return df
 
 
-def generate_comp_all(method, lang, name):
+def generate_comp_all(method, lang, name, bert=False):
     data = load_langdata(lang)
-    exc = ["add", "mult"]
-    exc += []
+    methods = ["add", "mult", "min", "max", "vnorm"]
+    if bert:
+        csvs = [x for x in data if x not in methods]
+    else:
+        csvs = [x for x in data if x not in methods and x != "bert"]
+    dflist = [data[x] for x in data if x in csvs]
     if method == "mult":
-        for i, x in enumerate([x for x in data if x not in exc]):
+        for i, x in enumerate(csvs):
             if i == 0:
                 df = data[x]
             else:
                 df = df*data[x]
-    else:
-        for i, x in enumerate([x for x in data if x not in exc]):
+
+    elif method == "add":
+        for i, x in enumerate(csvs):
             if i == 0:
                 df = data[x]
             else:
                 df = df+data[x]
-        df = df/len(data.keys)
+        df = df/len(data)
 
-    df.to_csv(path_or_buf="./data/document_embeds/"+lang+"/"+name+".csv", sep=" ", float_format='%.7f')
+    elif method == "min":
+        df = pd.concat(dflist).min(level=0)
+
+    elif method == "max":
+        df = pd.concat(dflist).max(level=0)
+
+    elif method == "vnorm":
+        for i, x in enumerate(csvs):
+            if i == 0:
+                df = data[x]**2
+            else:
+                df = df+data[x]**2
+        df = df.transform(lambda x: [math.sqrt(y) for y in x])
+
+    if bert:
+        df.to_csv(path_or_buf="./data/document_embeds/" + lang + "/" + name + "_b.csv", sep=" ", float_format='%.7f')
+    else:
+        df.to_csv(path_or_buf="./data/document_embeds/" + lang + "/" + name + ".csv", sep=" ", float_format='%.7f')
     return df
 
 
-def gen_combinations():
-    langs = next(os.walk('./data/document_embeds'))[1]
+def gen_combinations(bert=False, lang=""):
+    langs = get_langs()
+    if lang != "":
+        langs = [lang]
     for lang in langs:
         for method in ["mult", "add", "min", "max", "vnorm"]:
-            generate_comp_all(method, lang, method)
-
+            generate_comp_all(method, lang, method, bert)
 
 
 def generate_csvs_with_weights():
@@ -350,7 +375,8 @@ def get_test_set(authors_novels):
 
     return items, classes
 
-#generate_csvs()
-# fitness_comparison()
-#all_classification_report()
-classification_test("slv")
+
+gen_combinations(False, "eng")
+gen_combinations(True, "eng")
+# all_classification_report()
+classification_test("eng")
