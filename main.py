@@ -54,7 +54,6 @@ def eltec_fitness(distances, pop, method):
 
 
 def classify_and_report(df):
-
     df['guess'] = df[df.columns].idxmin(axis=1)
     guesses = []
     correct = []
@@ -122,16 +121,36 @@ def classification_test(lang):
     data = load_langdata(lang)
     authors_novels, authors, novels, chunks = a_n(lang, plus=True)
 
-    results = {}
+    results_easy = {}
+    results_hard = {}
     loss = {}
 
     items, classes = get_test_set(authors_novels)
+    single_authors= get_author_single(authors_novels)
 
     for df_name in data:
-        data[df_name] = data[df_name].drop(index=[x for x in chunks if x not in items],
-                                           columns=[x for x in chunks if x not in classes])
+        #hard test
+        df_hard = data[df_name].copy()
+        chunks = df_hard
+        drop_items = []
+        for x in chunks:
+            for y in chunks:
+                xs = x.split("_")
+                if xs in single_authors:
+                    drop_items.append(x)
+                else:
+                    ys = y.split("_")
+                    if xs[0] == ys[0] and xs[1] == ys[1]:
+                        df_hard.at[x, y] = 1
 
-        results[df_name] = classify_and_report(data[df_name])
+        df_hard = df_hard.drop(index=drop_items)
+        results_hard[df_name] = classify_and_report(df_hard)
+
+        # easy test
+        df_easy = data[df_name].copy()
+        df_easy = df_easy.drop(index=[x for x in chunks if x not in items], columns=[x for x in chunks if x not in classes])
+
+        results_easy[df_name] = classify_and_report(df_easy)
 
     #for df_name in data:
     #    loss[df_name] = get_loss(data[df_name])
@@ -140,8 +159,10 @@ def classification_test(lang):
     embeds = ["word", "pos", "lemma", "add", "mult", "add_w", "mult_w"]
     embeds = ["bert", "word", "pos", "lemma"]
 
-    for df_name in results:
-        print(df_name+"\t" + "\t".join([str(round(x, 4)) for x in results[df_name]]))
+    for df_name in results_easy:
+        print(df_name+"\t" + "\t".join([str(round(x, 4)) for x in results_easy[df_name]]))
+    for df_name in results_hard:
+        print(df_name + "\t" + "\t".join([str(round(x, 4)) for x in results_hard[df_name]]))
 
 
 def generate_comp(lemma, pos, word, method, lang, name):
@@ -287,6 +308,15 @@ def all_classification_report():
 def get_test_set2(authors_novels):
     items = []
     classes = []
+
+
+def get_author_single(authors_novels):
+
+    list = []
+    for a in authors_novels:
+        if len(authors_novels[a])<2:
+            list.append(a)
+    return list
 
 
 def get_test_set(authors_novels):
