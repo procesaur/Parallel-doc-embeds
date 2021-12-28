@@ -117,7 +117,7 @@ def a_n(lang, plus=False):
         return authors_novels
 
 
-def classification_test(lang):
+def classification_test(lang, easy=False):
     data = load_langdata(lang)
     authors_novels, authors, novels, chunks = a_n(lang, plus=True)
 
@@ -129,28 +129,30 @@ def classification_test(lang):
     single_authors= get_author_single(authors_novels)
 
     for df_name in data:
-        #hard test
-        df_hard = data[df_name].copy()
-        chunks = df_hard
-        drop_items = []
-        for x in chunks:
-            for y in chunks:
-                xs = x.split("_")
-                if xs in single_authors:
-                    drop_items.append(x)
-                else:
-                    ys = y.split("_")
-                    if xs[0] == ys[0] and xs[1] == ys[1]:
-                        df_hard.at[x, y] = 1
+        if easy:
+            # easy test
+            df_easy = data[df_name].copy()
+            df_easy = df_easy.drop(index=[x for x in chunks if x not in items],
+                                   columns=[x for x in chunks if x not in classes])
+            results_easy[df_name] = classify_and_report(df_easy)
 
-        df_hard = df_hard.drop(index=drop_items)
-        results_hard[df_name] = classify_and_report(df_hard)
+        else:
+            #hard test
+            df_hard = data[df_name].copy()
+            chunks = df_hard
+            drop_items = []
+            for x in chunks:
+                for y in chunks:
+                    xs = x.split("_")
+                    if xs in single_authors:
+                        drop_items.append(x)
+                    else:
+                        ys = y.split("_")
+                        if xs[0] == ys[0] and xs[1] == ys[1]:
+                            df_hard.at[x, y] = 1
 
-        # easy test
-        df_easy = data[df_name].copy()
-        df_easy = df_easy.drop(index=[x for x in chunks if x not in items], columns=[x for x in chunks if x not in classes])
-
-        results_easy[df_name] = classify_and_report(df_easy)
+            df_hard = df_hard.drop(index=drop_items)
+            results_hard[df_name] = classify_and_report(df_hard)
 
     #for df_name in data:
     #    loss[df_name] = get_loss(data[df_name])
@@ -159,10 +161,12 @@ def classification_test(lang):
     embeds = ["word", "pos", "lemma", "add", "mult", "add_w", "mult_w"]
     embeds = ["bert", "word", "pos", "lemma"]
 
-    for df_name in results_easy:
-        print(df_name+"\t" + "\t".join([str(round(x, 4)) for x in results_easy[df_name]]))
-    for df_name in results_hard:
-        print(df_name + "\t" + "\t".join([str(round(x, 4)) for x in results_hard[df_name]]))
+    if easy:
+        for df_name in results_easy:
+            print(df_name+"\t" + "\t".join([str(round(x, 4)) for x in results_easy[df_name]]))
+    else:
+        for df_name in results_hard:
+            print(df_name + "\t" + "\t".join([str(round(x, 4)) for x in results_hard[df_name]]))
 
 
 def generate_comp(lemma, pos, word, method, lang, name):
@@ -197,26 +201,34 @@ def generate_comp_all(method, lang, name):
     return df
 
 
-def generate_csvs(weights = False):
-    if weights:
-        lemma = {"mult": {}, "add": {}}
-        word = {"mult": {}, "add": {}}
-        pos = {"mult": {}, "add": {}}
+def gen_combinations():
+    langs = next(os.walk('./data/document_embeds'))[1]
+    for lang in langs:
+        for method in ["mult", "add", "min", "max", "vnorm"]:
+            generate_comp_all(method, lang, method)
 
-        with open("weights.csv", "r", encoding="utf8") as w:
-            weights = w.readlines();
 
-        for x in weights:
-            info = x.rstrip().split("\t")
-            ln = info[0]
-            method = info[1]
-            l = float(info[2])
-            p = float(info[3])
-            w = float(info[4])
 
-            lemma[method][ln] = l
-            pos[method][ln] = p
-            word[method][ln] = w
+def generate_csvs_with_weights():
+
+    lemma = {"mult": {}, "add": {}}
+    word = {"mult": {}, "add": {}}
+    pos = {"mult": {}, "add": {}}
+
+    with open("weights.csv", "r", encoding="utf8") as w:
+        weights = w.readlines();
+
+    for x in weights:
+        info = x.rstrip().split("\t")
+        ln = info[0]
+        method = info[1]
+        l = float(info[2])
+        p = float(info[3])
+        w = float(info[4])
+
+        lemma[method][ln] = l
+        pos[method][ln] = p
+        word[method][ln] = w
 
     langs = next(os.walk('./data/document_embeds'))[1]
     for lang in langs:
@@ -341,4 +353,4 @@ def get_test_set(authors_novels):
 #generate_csvs()
 # fitness_comparison()
 #all_classification_report()
-classification_test("srp")
+classification_test("slv")
