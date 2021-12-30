@@ -1,6 +1,6 @@
 import os
-import pickle
 import random
+from helpers import get_langs
 import numpy as np
 import pandas as pd
 import torch
@@ -8,7 +8,6 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report  # , confusion_matrix
 
 
 class miniNN(nn.Module):
@@ -101,7 +100,7 @@ def transform_matrices(dfs, rows_ex, cols_ex):
     return inputs, outputs
 
 
-def test_prob_net(lang, rows_ex=None, cols_ex=None, modelname='miniNN'):
+def test_prob_net(lang, langmodel, rows_ex=None, cols_ex=None, modelname='miniNN'):
 
     if rows_ex is None:
         rows_ex = []
@@ -119,7 +118,7 @@ def test_prob_net(lang, rows_ex=None, cols_ex=None, modelname='miniNN'):
     inputs, outputs = transform_matrices(pd_csvs, rows_ex, cols_ex)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = miniNN(num_feature=len(csvs))
-    model.load_state_dict(torch.load("./data/document_embeds/" + lang + '/' + modelname,
+    model.load_state_dict(torch.load("./data/document_embeds/" + langmodel + '/' + modelname,
                                      map_location=torch.device(device)))
     model.to(device)
 
@@ -143,23 +142,25 @@ def test_prob_net(lang, rows_ex=None, cols_ex=None, modelname='miniNN'):
 
     y_pred_list = [a.squeeze().tolist() for a in y_pred_list]
     tags = ([])
-    for y in y_pred_list:
-        tags.append(idx2class[y])
-
     return tags, y_prob_list
 
 
-def train_prob_net(lang, rows_ex=None, cols_ex=None, epochs=100, batch_size=32, lr=0.001, val_size=0.1):
+def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="miniNN",
+                 epochs=100, batch_size=16, lr=0.01, val_size=0.2):
 
+    if wanted is None:
+        wanted = ["pos", "word", "lemma", "masked_2", "masked_3"]
+    if bert:
+        wanted.append("bert")
+        name += "_b"
     if rows_ex is None:
         rows_ex = []
     if cols_ex is None:
         cols_ex = []
 
-    out_path = "./data/document_embeds/" + lang + "/miniNN"
+    out_path = "./data/document_embeds/" + lang + "/" + name
     path = "./data/document_embeds/" + lang
     csvs = [x for x in os.listdir(path) if ".csv" in x]
-    wanted = ["pos", "word", "lemma", "masked_2", "masked_3", "bert"]
     csvs = [x for x in csvs if x.split(".")[0] in wanted]
     pd_csvs = {}
     for csv in csvs:
@@ -167,18 +168,16 @@ def train_prob_net(lang, rows_ex=None, cols_ex=None, epochs=100, batch_size=32, 
 
     inputs, outputs = transform_matrices(pd_csvs, rows_ex, cols_ex)
 
-    X_trainval, X_test, y_trainval, y_test = train_test_split(inputs, outputs, test_size=0.01,
-                                                              random_state=1)
-    X_train, X_val, y_train, y_val = train_test_split(X_trainval, y_trainval, test_size=val_size, stratify=y_trainval,
+    epochs = round(4000000/len(outputs))+50
+    print(epochs)
+    X_train, X_val, y_train, y_val = train_test_split(inputs, outputs, test_size=val_size, stratify=outputs,
                                                       random_state=1)
 
     X_train, y_train = np.array(X_train), np.array(y_train)
     X_val, y_val = np.array(X_val), np.array(y_val)
-    X_test, y_test = np.array(X_test), np.array(y_test)
 
     train_dataset = ClassifierDataset(torch.tensor(X_train).float(), torch.from_numpy(y_train).long())
     val_dataset = ClassifierDataset(torch.from_numpy(X_val).float(), torch.from_numpy(y_val).long())
-    test_dataset = ClassifierDataset(torch.from_numpy(X_test).float(), torch.from_numpy(y_test).long())
 
     target_list = []
     for _, t in train_dataset:
@@ -201,14 +200,18 @@ def train_prob_net(lang, rows_ex=None, cols_ex=None, epochs=100, batch_size=32, 
     # train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, sampler=weighted_sampler)
     train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size)
     val_loader = DataLoader(dataset=val_dataset, batch_size=1)
-    test_loader = DataLoader(dataset=test_dataset, batch_size=1)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = miniNN(len(wanted))
-    model.to(device)
-    # criterion = nn.CrossEntropyLoss(weight=class_weights.to(device))
-    # criterion = nn.CrossEntropyLoss()
 
+    # with torch.no_grad():
+    #     model.layer_out.weight[0, 0] = -100
+    #     model.layer_out.weight[0, 1] = 100
+    #     model.layer_out.weight[0, 2] = -100
+    #     model.layer_out.weight[0, 3] = -100
+    #     model.layer_out.weight[0, 4] = -100
+
+    model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
     accuracy_stats = {
@@ -281,19 +284,5 @@ def train_prob_net(lang, rows_ex=None, cols_ex=None, epochs=100, batch_size=32, 
             torch.save(model.state_dict(), out_path)
 
     print(model.layer_out.weight)
-    y_pred_list = []
-
-    with torch.no_grad():
-        model.eval()
-        for X_batch, _ in test_loader:
-            X_batch = X_batch.to(device)
-            y_test_pred = model(X_batch)
-            y_pred_softmax = torch.log_softmax(y_test_pred, dim=1)
-            _, y_pred_tags = torch.max(y_pred_softmax, dim=1)
-            y_pred_list.append(y_pred_tags.cpu().numpy())
-
-    y_pred_list = [a.squeeze().tolist() for a in y_pred_list]
-    print(classification_report(y_test, y_pred_list, zero_division=1))
 
 
-train_prob_net("srp")
