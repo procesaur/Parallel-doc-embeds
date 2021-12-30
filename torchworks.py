@@ -1,13 +1,14 @@
 import os
-import random
-from helpers import get_langs
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
+from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
+from helpers import average_list
+
+from helpers import probably, flatten
 
 
 class miniNN(nn.Module):
@@ -15,10 +16,12 @@ class miniNN(nn.Module):
     def __init__(self, num_feature):
         super(miniNN, self).__init__()
         self.layer_out = nn.Linear(num_feature, 1)
+        self.relu = nn.ReLU()
 
     def forward(self, x):
+        #x = self.relu
         x = self.layer_out(x)
-        x = torch.sigmoid(x)
+        #x = torch.sigmoid(x)
         return x
 
 
@@ -35,18 +38,13 @@ class ClassifierDataset(Dataset):
         return len(self.X_data)
 
 
-def probably(chance):
-    return random.random() < chance
-
-
-def flatten(tensor):
-    tensor = tensor.reshape(1, -1)
-    tensor = tensor.squeeze()
-    return tensor
-
-
-def custom_loss_with_accu(pred_batch, batch):
+def custom_loss_with_accu(pred_batch, batch, model):
     pred = flatten(pred_batch)
+    pred = torch.sigmoid(pred)
+    weights = model.layer_out.weight
+    weights = flatten(weights)
+    weights = [x.item() for x in list(weights)]
+    weights = average_list(weights)
     x = batch-pred
     x = torch.abs(x)
     loss = torch.mean(x)
@@ -54,6 +52,20 @@ def custom_loss_with_accu(pred_batch, batch):
     size = x.size(dim=0)
     acc = 100*correct/size
     return loss, acc
+
+
+def get_weights(modelpath):
+    n = 5
+    if modelpath.endswith('_b'):
+        n = 6
+    model = miniNN(num_feature=n)
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model.load_state_dict(torch.load(modelpath, map_location=torch.device(device)))
+    model.to(device)
+    weights = model.layer_out.weight
+    weights = flatten(weights)
+    weights = [x.item() for x in list(weights)]
+    return weights
 
 
 def transform_matrices(dfs, rows_ex, cols_ex):
@@ -82,13 +94,15 @@ def transform_matrices(dfs, rows_ex, cols_ex):
                 for w in wanted:
                     df = dfs[w]
                     value = df[a][i]
+                    if w == "bert":
+                        value = 1-value
                     input_vector.append(value)
 
                 inputs_temp.append(input_vector)
                 outputs_temp.append(output)
 
     distribution = len([x for x in outputs_temp if x == 1])/len([x for x in outputs_temp if x == 0])
-
+    print(distribution)
     for i in range(0, len(outputs_temp)):
         if outputs_temp[i] == 1:
             inputs.append(inputs_temp[i])
@@ -96,6 +110,9 @@ def transform_matrices(dfs, rows_ex, cols_ex):
         elif probably(distribution):
             inputs.append(inputs_temp[i])
             outputs.append(outputs_temp[i])
+
+    distribution = len([x for x in outputs if x == 1]) / len([x for x in outputs if x == 0])
+    print(distribution)
 
     return inputs, outputs
 
@@ -146,7 +163,7 @@ def test_prob_net(lang, langmodel, rows_ex=None, cols_ex=None, modelname='miniNN
 
 
 def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="miniNN",
-                 epochs=100, batch_size=16, lr=0.01, val_size=0.2):
+                 epochs=100, batch_size=64, lr=0.001, val_size=0.2):
 
     if wanted is None:
         wanted = ["pos", "word", "lemma", "masked_2", "masked_3"]
@@ -168,7 +185,7 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
 
     inputs, outputs = transform_matrices(pd_csvs, rows_ex, cols_ex)
 
-    epochs = round(4000000/len(outputs))+50
+    epochs = round(1000000/len(outputs))+100
     print(epochs)
     X_train, X_val, y_train, y_val = train_test_split(inputs, outputs, test_size=val_size, stratify=outputs,
                                                       random_state=1)
@@ -179,40 +196,23 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
     train_dataset = ClassifierDataset(torch.tensor(X_train).float(), torch.from_numpy(y_train).long())
     val_dataset = ClassifierDataset(torch.from_numpy(X_val).float(), torch.from_numpy(y_val).long())
 
-    target_list = []
-    for _, t in train_dataset:
-        target_list.append(t)
-
-    target_list = torch.tensor(target_list)
-    target_list = target_list[torch.randperm(len(target_list))]
-
-    class_count = [len([x for x in outputs if x == 0]), len([x for x in outputs if x == 1])]
-    class_weights = 1. / torch.tensor(class_count, dtype=torch.float)
-
-    class_weights_all = class_weights[target_list]
-
-    weighted_sampler = WeightedRandomSampler(
-        weights=class_weights_all,
-        num_samples=len(class_weights_all),
-        replacement=True
-    )
-
-    # train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, sampler=weighted_sampler)
     train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size)
     val_loader = DataLoader(dataset=val_dataset, batch_size=1)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = miniNN(len(wanted))
 
-    # with torch.no_grad():
-    #     model.layer_out.weight[0, 0] = -100
-    #     model.layer_out.weight[0, 1] = 100
-    #     model.layer_out.weight[0, 2] = -100
-    #     model.layer_out.weight[0, 3] = -100
-    #     model.layer_out.weight[0, 4] = -100
+    #with torch.no_grad():
+        #model.layer_out.weight[0, 0] = 1
+        #model.layer_out.weight[0, 1] = 1
+        #model.layer_out.weight[0, 2] = 1
+        #model.layer_out.weight[0, 3] = 1
+        #model.layer_out.weight[0, 4] = 1
 
     model.to(device)
+
     optimizer = optim.Adam(model.parameters(), lr=lr)
+    #optimizer = optim.SGD(model.parameters(), lr=lr)
 
     accuracy_stats = {
         'train': [],
@@ -239,9 +239,9 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
 
             y_train_pred = model(X_train_batch)
 
-            train_loss, train_acc = custom_loss_with_accu(y_train_pred, y_train_batch)
-
+            train_loss, train_acc = custom_loss_with_accu(y_train_pred, y_train_batch, model)
             train_loss.backward()
+
             optimizer.step()
 
             train_epoch_loss += train_loss
@@ -257,7 +257,7 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
             for X_val_batch, y_val_batch in val_loader:
                 X_val_batch, y_val_batch = X_val_batch.to(device), y_val_batch.to(device)
                 y_val_pred = model(X_val_batch)
-                val_loss, val_acc = custom_loss_with_accu(y_val_pred, y_val_batch)
+                val_loss, val_acc = custom_loss_with_accu(y_val_pred, y_val_batch, model)
                 val_epoch_loss += val_loss
                 val_epoch_acc += val_acc
 

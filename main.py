@@ -1,10 +1,8 @@
-import random
-import torchworks
 from sklearn.metrics import classification_report, precision_recall_fscore_support as score, accuracy_score
-
-from helpers import *
 import math
 import numpy as np
+from helpers import *
+import torchworks
 
 
 def classify_and_report(df):
@@ -24,27 +22,6 @@ def classify_and_report(df):
     return vals
 
 
-def a_n(lang, plus=False):
-    data = load_langdata(lang)
-    chunks = [x for x in data["lemma"].columns if x!= "Unnamed: 0"]
-    try:
-        novels = list(set([x.split("_")[0] + "_" + x.split("_")[1] for x in chunks]))
-    except:
-        print([x for x in chunks if "_" not in x])
-    authors = [x.split("_")[0] for x in novels]
-    authors = list(set(authors))
-    authors_novels = {}
-
-    for a in authors:
-        authors_novels[a] = dict.fromkeys([x for x in novels if x.split("_")[0] == a])
-        for n in authors_novels[a]:
-            authors_novels[a][n] = [x for x in chunks if x.split("_")[0] + "_" + x.split("_")[1] == n]
-
-    if plus:
-        return authors_novels, authors, novels, chunks
-    else:
-        return authors_novels
-
 
 def classification_test(lang, easy=False):
     data = load_langdata(lang)
@@ -55,7 +32,7 @@ def classification_test(lang, easy=False):
     loss = {}
 
     items, classes = get_test_set(authors_novels)
-    single_authors= get_author_single(authors_novels)
+    single_authors = get_author_single(authors_novels)
 
     for df_name in data:
         if easy:
@@ -96,16 +73,6 @@ def classification_test(lang, easy=False):
     else:
         for df_name in results_hard:
             print(df_name + "\t" + "\t".join([str(round(x, 4)) for x in results_hard[df_name]]))
-
-
-def generate_comp(lemma, pos, word, method, lang, name):
-    data = load_langdata(lang)
-    if method == "mult":
-        df = (data["lemma"]+lemma)*(data["pos"]+pos)*(data["word"]+word)
-    else:
-        df = data["lemma"] * lemma + data["pos"] * pos + data["word"] * word
-    df.to_csv(path_or_buf="./data/document_embeds/"+lang+"/"+name+".csv", sep=" ", float_format='%.7f')
-    return df
 
 
 def generate_comp_all(method, lang, name, bert=False):
@@ -161,38 +128,32 @@ def gen_combinations(bert=False, lang=""):
             generate_comp_all(method, lang, method, bert)
 
 
-def generate_csvs_with_weights():
+def generate_csvs_with_weights(lang_weights, lang_apply, bert=False):
+    wanted = ["pos", "word", "lemma", "masked_2", "masked_3"]
+    modelname = "miniNN"
+    if bert:
+        wanted = ["pos", "word", "lemma", "masked_2", "masked_3", "bert"]
+        modelname = "miniNN_b"
 
-    lemma = {"mult": {}, "add": {}}
-    word = {"mult": {}, "add": {}}
-    pos = {"mult": {}, "add": {}}
+    weights = torchworks.get_weights("./data/document_embeds/" + lang_weights + "/" + modelname)
+    #weights = sigmoid(weights)
+    path_apply = "./data/document_embeds/" + lang_apply + "/"
+    matrices = []
+    for x in wanted:
+        matrices.append(pd.read_csv(path_apply + x + ".csv", sep=" ", engine='python', index_col=0))
 
-    with open("weights.csv", "r", encoding="utf8") as w:
-        weights = w.readlines();
+    for i, w in enumerate(weights):
+        dfs = matrices[i]
+        if wanted[i] == "bert":
+            dfs = 1-dfs
+        if i == 0:
+            df = dfs*w
+        else:
+            df += dfs*w
 
-    for x in weights:
-        info = x.rstrip().split("\t")
-        ln = info[0]
-        method = info[1]
-        l = float(info[2])
-        p = float(info[3])
-        w = float(info[4])
-
-        lemma[method][ln] = l
-        pos[method][ln] = p
-        word[method][ln] = w
-
-    langs = next(os.walk('./data/document_embeds'))[1]
-    for lang in langs:
-        for method in ["mult", "add"]:
-            if method == "mult":
-                generate_comp_all(method, lang, method)
-                if weights:
-                    generate_comp(lemma[method][lang], pos[method][lang], word[method][lang], method, lang, method+"_w")
-            else:
-                generate_comp_all(method, lang, method)
-                if weights:
-                    generate_comp(lemma[method][lang], pos[method][lang], word[method][lang], method, lang, method+"_w")
+    df = df / numpy.sum(weights)
+    #df = df.transform(lambda x: [-y for y in x])
+    df.to_csv(path_or_buf="./data/document_embeds/" + lang_apply + "/" + modelname + ".csv", sep=" ", float_format='%.7f')
 
 
 def all_classification_report():
@@ -200,15 +161,6 @@ def all_classification_report():
     for lang in langs:
         print(lang + "  > ")
         classification_test(lang)
-
-
-def get_author_single(authors_novels):
-
-    list = []
-    for a in authors_novels:
-        if len(authors_novels[a])<2:
-            list.append(a)
-    return list
 
 
 def get_test_set(authors_novels):
@@ -236,17 +188,35 @@ def get_test_set(authors_novels):
     return items, classes
 
 
-# for each language
-for lang in get_langs():
-    # generate simple combinations without bert
-    gen_combinations(bert=False, lang=lang)
-    # generate simple combinations without bert
-    gen_combinations(bert=True, lang=lang)
+#torchworks.train_mini(lang="srp", bert=False)
+#torchworks.train_mini(lang="srp", bert=True)
+generate_csvs_with_weights("srp", "srp", bert=False)
+#generate_csvs_with_weights("srp", "srp", bert=True)
+classification_test("srp")
 
-    # train weights without bert
-    torchworks.train_mini(lang=lang, bert=False)
-    # train weights with bert
-    torchworks.train_mini(lang=lang, bert=True)
 
-    # all_classification_report()
-    classification_test(lang)
+if False:
+    generate_csvs_with_weights("srp", "slv", bert=False)
+    generate_csvs_with_weights("srp", "slv", bert=True)
+
+    generate_csvs_with_weights("srp", "srp", bert=True)
+
+    classification_test("slv", easy=True)
+    generate_csvs_with_weights("fra", "por", bert=True)
+    generate_csvs_with_weights("fra", "por", bert=False)
+    classification_test("por")
+
+    # for each language
+    for lang in get_langs():
+        # generate simple combinations without bert
+        gen_combinations(bert=False, lang=lang)
+        # generate simple combinations without bert
+        gen_combinations(bert=True, lang=lang)
+
+        # train weights without bert
+        torchworks.train_mini(lang=lang, bert=False)
+        # train weights with bert
+        torchworks.train_mini(lang=lang, bert=True)
+
+        # all_classification_report()
+        classification_test(lang)

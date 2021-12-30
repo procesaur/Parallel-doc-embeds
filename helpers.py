@@ -1,6 +1,25 @@
 import os
 import numpy
 import pandas as pd
+import random
+import math
+
+
+def sigmoid(vector):
+    out = []
+    for x in vector:
+        out.append(1 / (1 + math.exp(-x)))
+    return out
+
+
+def probably(chance):
+    return random.random() < chance
+
+
+def flatten(tensor):
+    tensor = tensor.reshape(1, -1)
+    tensor = tensor.squeeze()
+    return tensor
 
 
 def sum_lists(a1, a2):
@@ -40,7 +59,7 @@ def load_langdata(lang, ex=False):
         ex_list = ["results", "add", "add_w", "mult", "mult_w"]
     else:
         ex_list = ["results"]
-    for incarnation in os.listdir(dir):
+    for incarnation in [x for x in os.listdir(dir) if ".csv" in x]:
         i_name = os.path.splitext(incarnation)[0]
         sepr = " "
         if i_name not in ex_list:
@@ -67,3 +86,33 @@ def load_langdata(lang, ex=False):
 def get_langs(path="./data/document_embeds"):
     return next(os.walk(path))[1]
 
+
+def a_n(lang, plus=False):
+    data = load_langdata(lang)
+    chunks = [x for x in data["lemma"].columns if x!= "Unnamed: 0"]
+    try:
+        novels = list(set([x.split("_")[0] + "_" + x.split("_")[1] for x in chunks]))
+    except:
+        print([x for x in chunks if "_" not in x])
+    authors = [x.split("_")[0] for x in novels]
+    authors = list(set(authors))
+    authors_novels = {}
+
+    for a in authors:
+        authors_novels[a] = dict.fromkeys([x for x in novels if x.split("_")[0] == a])
+        for n in authors_novels[a]:
+            authors_novels[a][n] = [x for x in chunks if x.split("_")[0] + "_" + x.split("_")[1] == n]
+
+    if plus:
+        return authors_novels, authors, novels, chunks
+    else:
+        return authors_novels
+
+
+def get_author_single(authors_novels):
+
+    list = []
+    for a in authors_novels:
+        if len(authors_novels[a]) < 2:
+            list.append(a)
+    return list
