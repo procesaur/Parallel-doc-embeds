@@ -22,6 +22,7 @@ def classify_and_report(df):
 
 
 def classification_test(lang, easy=False):
+    print("\n" + lang + ">>")
     data = load_langdata(lang)
     authors_novels, authors, novels, chunks = a_n(lang, plus=True)
 
@@ -130,7 +131,7 @@ def generate_csvs_with_weights(lang_weights, lang_apply, bert=False):
     wanted = ["pos", "word", "lemma", "masked_2", "masked_3"]
     modelname = "miniNN"
     if bert:
-        wanted += "bert"
+        wanted.append("bert")
         modelname = "miniNN_b"
 
     wanted = sorted(wanted)
@@ -188,27 +189,27 @@ def get_test_set(authors_novels):
     return items, classes
 
 
-torchworks.train_mini(lang="srp", bert=False)
+#torchworks.train_mini(lang="srp", bert=False)
 #torchworks.train_mini(lang="srp", bert=True)
-generate_csvs_with_weights("srp", "srp", bert=False)
+#torchworks.train_mini(lang="por", bert=False)
+#torchworks.train_mini(lang="por", bert=True)
+# generate_csvs_with_weights("srp", "srp", bert=False)
 #generate_csvs_with_weights("srp", "srp", bert=True)
-generate_csvs_with_weights("srp", "slv", bert=False)
+#generate_csvs_with_weights("srp", "slv", bert=False)
 #generate_csvs_with_weights("srp", "slv", bert=True)
-classification_test("srp")
-classification_test("slv")
+generate_csvs_with_weights("srp", "fra", bert=True)
+generate_csvs_with_weights("srp", "fra", bert=False)
+#generate_csvs_with_weights("por", "por", bert=True)
+#generate_csvs_with_weights("por", "por", bert=False)
+
+#classification_test("srp")
+#classification_test("slv")
+#classification_test("por")
+classification_test("fra")
 
 
+# pipeline
 if False:
-    generate_csvs_with_weights("srp", "slv", bert=False)
-    generate_csvs_with_weights("srp", "slv", bert=True)
-
-    generate_csvs_with_weights("srp", "srp", bert=True)
-
-    classification_test("slv", easy=True)
-    generate_csvs_with_weights("fra", "por", bert=True)
-    generate_csvs_with_weights("fra", "por", bert=False)
-    classification_test("por")
-
     # for each language
     for lang in get_langs():
         # generate simple combinations without bert

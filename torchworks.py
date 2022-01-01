@@ -187,7 +187,7 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
             pd_csvs[df] = pd_csvs[df].transform(lambda x: [1-y for y in x])
     inputs, outputs = transform_matrices(pd_csvs, rows_ex, cols_ex)
 
-    epochs = round(500000/len(outputs))+250
+    epochs = round(400000/len(outputs))+150
     print(epochs)
     X_train, X_val, y_train, y_val = train_test_split(inputs, outputs, test_size=val_size, stratify=outputs,
                                                       random_state=1)
