@@ -19,9 +19,7 @@ class miniNN(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x):
-        #x = self.relu
         x = self.layer_out(x)
-        #x = torch.sigmoid(x)
         return x
 
 
@@ -162,7 +160,7 @@ def test_prob_net(lang, langmodel, rows_ex=None, cols_ex=None, modelname='miniNN
 
 
 def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="miniNN",
-                 epochs=100, batch_size=64, lr=0.001, val_size=0.2):
+                 epochs=100, batch_size=64, lr=0.01, val_size=0.2):
 
     if wanted is None:
         wanted = ["pos", "word", "lemma", "masked_2", "masked_3"]
@@ -189,7 +187,7 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
             pd_csvs[df] = pd_csvs[df].transform(lambda x: [1-y for y in x])
     inputs, outputs = transform_matrices(pd_csvs, rows_ex, cols_ex)
 
-    epochs = round(300000/len(outputs))+100
+    epochs = round(500000/len(outputs))+120
     print(epochs)
     X_train, X_val, y_train, y_val = train_test_split(inputs, outputs, test_size=val_size, stratify=outputs,
                                                       random_state=1)
@@ -206,17 +204,9 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = miniNN(len(wanted))
 
-    #with torch.no_grad():
-        #model.layer_out.weight[0, 0] = 1
-        #model.layer_out.weight[0, 1] = 1
-        #model.layer_out.weight[0, 2] = 1
-        #model.layer_out.weight[0, 3] = 1
-        #model.layer_out.weight[0, 4] = 1
-
     model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
-    #optimizer = optim.SGD(model.parameters(), lr=lr)
 
     accuracy_stats = {
         'train': [],
@@ -282,7 +272,7 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
               f' Val Acc: {vacc:.3f}' +
               str(model.layer_out.weight))
 
-        score = vacc
+        score = 1-vloss
         if score > best:
             best = score
             torch.save(model.state_dict(), out_path)

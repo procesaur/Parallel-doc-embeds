@@ -190,13 +190,13 @@ def get_test_set(authors_novels):
 
 
 torchworks_old.train_mini(lang="srp", bert=False)
-#torchworks_old.train_mini(lang="srp", bert=True)
+torchworks_old.train_mini(lang="srp", bert=True)
 generate_csvs_with_weights("srp", "srp", bert=False)
-#generate_csvs_with_weights("srp", "srp", bert=True)
-#generate_csvs_with_weights("srp", "slv", bert=False)
-#generate_csvs_with_weights("srp", "slv", bert=True)
+generate_csvs_with_weights("srp", "srp", bert=True)
+generate_csvs_with_weights("srp", "slv", bert=False)
+generate_csvs_with_weights("srp", "slv", bert=True)
 classification_test("srp")
-#classification_test("slv")
+classification_test("slv")
 
 
 if False:
