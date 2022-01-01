@@ -1,7 +1,7 @@
 from sklearn.metrics import classification_report, precision_recall_fscore_support as score, accuracy_score
 import numpy as np
 from helpers import *
-import torchworks_test, torchworks
+import torchworks
 
 
 def classify_and_report(df):
@@ -19,7 +19,6 @@ def classify_and_report(df):
     acc = accuracy_score(correct, guesses)
     vals = [macro_prec, macro_rcl, macro_f, acc]
     return vals
-
 
 
 def classification_test(lang, easy=False):
@@ -131,12 +130,12 @@ def generate_csvs_with_weights(lang_weights, lang_apply, bert=False):
     wanted = ["pos", "word", "lemma", "masked_2", "masked_3"]
     modelname = "miniNN"
     if bert:
-        wanted = ["pos", "word", "lemma", "masked_2", "masked_3", "bert"]
+        wanted += "bert"
         modelname = "miniNN_b"
 
     wanted = sorted(wanted)
     path = "./data/document_embeds/" + lang_weights + "/" + modelname
-    weights = torchworks_test.get_weights(path)
+    weights = torchworks.get_weights(path)
     #weights = sigmoid(weights)
     path_apply = "./data/document_embeds/" + lang_apply + "/"
     matrices = []
@@ -190,11 +189,11 @@ def get_test_set(authors_novels):
 
 
 torchworks.train_mini(lang="srp", bert=False)
-torchworks.train_mini(lang="srp", bert=True)
+#torchworks.train_mini(lang="srp", bert=True)
 generate_csvs_with_weights("srp", "srp", bert=False)
-generate_csvs_with_weights("srp", "srp", bert=True)
+#generate_csvs_with_weights("srp", "srp", bert=True)
 generate_csvs_with_weights("srp", "slv", bert=False)
-generate_csvs_with_weights("srp", "slv", bert=True)
+#generate_csvs_with_weights("srp", "slv", bert=True)
 classification_test("srp")
 classification_test("slv")
 

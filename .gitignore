@@ -8,6 +8,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+torchworks_test.py
 data/stylo_freq
 data/chunks
 data/document_models
@@ -117,4 +118,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+torchworks_test.py
 torchworks_test.py
