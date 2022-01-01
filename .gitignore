@@ -117,3 +117,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+torchworks_test.py

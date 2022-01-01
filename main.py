@@ -1,7 +1,7 @@
 from sklearn.metrics import classification_report, precision_recall_fscore_support as score, accuracy_score
 import numpy as np
 from helpers import *
-import torchworks, torchworks_old
+import torchworks_test, torchworks
 
 
 def classify_and_report(df):
@@ -136,7 +136,7 @@ def generate_csvs_with_weights(lang_weights, lang_apply, bert=False):
 
     wanted = sorted(wanted)
     path = "./data/document_embeds/" + lang_weights + "/" + modelname
-    weights = torchworks.get_weights(path)
+    weights = torchworks_test.get_weights(path)
     #weights = sigmoid(weights)
     path_apply = "./data/document_embeds/" + lang_apply + "/"
     matrices = []
@@ -189,8 +189,8 @@ def get_test_set(authors_novels):
     return items, classes
 
 
-torchworks_old.train_mini(lang="srp", bert=False)
-torchworks_old.train_mini(lang="srp", bert=True)
+torchworks.train_mini(lang="srp", bert=False)
+torchworks.train_mini(lang="srp", bert=True)
 generate_csvs_with_weights("srp", "srp", bert=False)
 generate_csvs_with_weights("srp", "srp", bert=True)
 generate_csvs_with_weights("srp", "slv", bert=False)
