@@ -194,22 +194,30 @@ def get_test_set(authors_novels):
 #torchworks.train_mini(lang="por", bert=False)
 #torchworks.train_mini(lang="por", bert=True)
 # generate_csvs_with_weights("srp", "srp", bert=False)
-#generate_csvs_with_weights("srp", "srp", bert=True)
-#generate_csvs_with_weights("srp", "slv", bert=False)
-#generate_csvs_with_weights("srp", "slv", bert=True)
-generate_csvs_with_weights("srp", "fra", bert=True)
-generate_csvs_with_weights("srp", "fra", bert=False)
+# generate_csvs_with_weights("srp", "srp", bert=True)
+# generate_csvs_with_weights("srp", "slv", bert=False)
+# generate_csvs_with_weights("srp", "slv", bert=True)
+# generate_csvs_with_weights("srp", "fra", bert=True)
+# generate_csvs_with_weights("srp", "fra", bert=False)
 #generate_csvs_with_weights("por", "por", bert=True)
 #generate_csvs_with_weights("por", "por", bert=False)
 
 #classification_test("srp")
 #classification_test("slv")
 #classification_test("por")
-classification_test("fra")
 
+
+for lang in get_langs():
+    # train weights without bert
+    torchworks.train_mini(lang=lang, bert=False)
+    # train weights with bert
+    torchworks.train_mini(lang=lang, bert=True)
 
 # pipeline
 if False:
+
+    torchworks.train_mini(lang="all", bert=False)
+    torchworks.train_mini(lang="all", bert=True)
     # for each language
     for lang in get_langs():
         # generate simple combinations without bert
@@ -221,6 +229,8 @@ if False:
         torchworks.train_mini(lang=lang, bert=False)
         # train weights with bert
         torchworks.train_mini(lang=lang, bert=True)
+
+
 
         # all_classification_report()
         classification_test(lang)

@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 from helpers import average_list
 
-from helpers import probably, flatten
+from helpers import probably, flatten, get_langs
 
 
 class miniNN(nn.Module):
@@ -67,6 +67,12 @@ def get_weights(modelpath):
     return weights
 
 
+def get_epochs_n(n):
+    epochs = round(500000/n)+50
+    print(epochs)
+    return epochs
+
+
 def transform_matrices(dfs, rows_ex, cols_ex):
     inputs = []
     outputs = []
@@ -114,53 +120,8 @@ def transform_matrices(dfs, rows_ex, cols_ex):
     return inputs, outputs
 
 
-def test_prob_net(lang, langmodel, rows_ex=None, cols_ex=None, modelname='miniNN'):
-
-    if rows_ex is None:
-        rows_ex = []
-    if cols_ex is None:
-        cols_ex = []
-
-    path = "./data/document_embeds/" + lang
-    csvs = [x for x in os.listdir(path) if ".csv" in x]
-    wanted = ["pos", "word", "lemma", "masked_2", "masked_3", "bert"]
-    csvs = [x for x in csvs if x.split(".")[0] in wanted]
-    pd_csvs = {}
-    for csv in csvs:
-        pd_csvs[csv.split(".")[0]] = pd.read_csv(path + "/" + csv, sep=' ')
-
-    inputs, outputs = transform_matrices(pd_csvs, rows_ex, cols_ex)
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    model = miniNN(num_feature=len(csvs))
-    model.load_state_dict(torch.load("./data/document_embeds/" + langmodel + '/' + modelname,
-                                     map_location=torch.device(device)))
-    model.to(device)
-
-    test_dataset = ClassifierDataset(torch.from_numpy(inputs).float(), torch.from_numpy(outputs).long())
-    test_loader = DataLoader(dataset=test_dataset, batch_size=1)
-
-    y_pred_list = []
-    y_prob_list = []
-
-    with torch.no_grad():
-        model.eval()
-        for X_batch, _ in test_loader:
-            X_batch = X_batch.to(device)
-            y_test_pred = model(X_batch)
-            y_pred_softmax = torch.log_softmax(y_test_pred, dim=1)
-            sm = nn.Softmax(dim=1)
-            probs = sm(y_test_pred)
-            _, y_pred_tags = torch.max(y_pred_softmax, dim=1)
-            y_pred_list.append(y_pred_tags.cpu().numpy())
-            y_prob_list.append(torch.max(probs).item())
-
-    y_pred_list = [a.squeeze().tolist() for a in y_pred_list]
-    tags = ([])
-    return tags, y_prob_list
-
-
-def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="miniNN",
-                 epochs=100, batch_size=64, lr=0.01, val_size=0.2):
+def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="",
+               batch_size=64, lr=0.01, val_size=0.2):
 
     if wanted is None:
         wanted = ["pos", "word", "lemma", "masked_2", "masked_3"]
@@ -172,23 +133,36 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
     if cols_ex is None:
         cols_ex = []
 
-    out_path = "./data/document_embeds/" + lang + "/" + name
-    path = "./data/document_embeds/" + lang
-    csvs = [x for x in os.listdir(path) if ".csv" in x]
-    csvs = [x for x in csvs if x.split(".")[0] in wanted]
-    pd_csvs = {}
-    for csv in csvs:
-        pd_csvs[csv.split(".")[0]] = pd.read_csv(path + "/" + csv, sep=' ')
+    inputs = []
+    outputs = []
 
-    for df in pd_csvs:
-        if pd_csvs[df].columns.tolist()[0] == "Unnamed: 0":
-            pd_csvs[df] = pd_csvs[df].set_index("Unnamed: 0")
-        if df != "bert":
-            pd_csvs[df] = pd_csvs[df].transform(lambda x: [1-y for y in x])
-    inputs, outputs = transform_matrices(pd_csvs, rows_ex, cols_ex)
+    if lang == "all":
+        out_path = "./data/weights/universal" + name
+        langs = get_langs()
+    else:
+        out_path = "./data/weights/" + lang + name
+        langs = [lang]
 
-    epochs = round(400000/len(outputs))+150
-    print(epochs)
+    for lang in langs:
+        path = "./data/document_embeds/" + lang
+        csvs = [x for x in os.listdir(path) if ".csv" in x]
+        csvs = [x for x in csvs if x.split(".")[0] in wanted]
+        pd_csvs = {}
+        for csv in csvs:
+            pd_csvs[csv.split(".")[0]] = pd.read_csv(path + "/" + csv, sep=' ')
+
+        for df in pd_csvs:
+            if pd_csvs[df].columns.tolist()[0] == "Unnamed: 0":
+                pd_csvs[df] = pd_csvs[df].set_index("Unnamed: 0")
+            if df != "bert":
+                pd_csvs[df] = pd_csvs[df].transform(lambda x: [1-y for y in x])
+        lang_inputs, lang_outputs = transform_matrices(pd_csvs, rows_ex, cols_ex)
+
+        inputs += lang_inputs
+        outputs += lang_outputs
+
+    epochs = get_epochs_n(len(outputs))
+
     X_train, X_val, y_train, y_val = train_test_split(inputs, outputs, test_size=val_size, stratify=outputs,
                                                       random_state=1)
 
