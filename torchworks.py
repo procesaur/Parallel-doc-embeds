@@ -6,7 +6,6 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
-from helpers import average_list
 
 from helpers import probably, flatten, get_langs
 
@@ -36,13 +35,9 @@ class ClassifierDataset(Dataset):
         return len(self.X_data)
 
 
-def custom_loss_with_accu(pred_batch, batch, model):
+def custom_loss_with_accu(pred_batch, batch):
     pred = flatten(pred_batch)
     pred = torch.sigmoid(pred)
-    weights = model.layer_out.weight
-    weights = flatten(weights)
-    weights = [x.item() for x in list(weights)]
-    weights = average_list(weights)
     x = batch-pred
     x = torch.abs(x)
     loss = torch.mean(x)
@@ -73,7 +68,7 @@ def get_epochs_n(n):
     return epochs
 
 
-def transform_matrices(dfs, rows_ex, cols_ex):
+def transform_matrices(dfs, rows_ex, cols_ex, nerf=295936):
     inputs = []
     outputs = []
     inputs_temp = []
@@ -81,6 +76,8 @@ def transform_matrices(dfs, rows_ex, cols_ex):
     wanted = dfs.keys()
     columns = [x for x in dfs["lemma"].columns if "_" in x]
     n = len(columns)
+
+    nerf_ratio = nerf / n*n
 
     for i in range(0, n):
         if columns[i] not in rows_ex:
@@ -105,17 +102,18 @@ def transform_matrices(dfs, rows_ex, cols_ex):
                 outputs_temp.append(output)
 
     distribution = len([x for x in outputs_temp if x == 1])/len([x for x in outputs_temp if x == 0])
-    print(distribution)
+    # print(distribution)
     for i in range(0, len(outputs_temp)):
-        if outputs_temp[i] == 1:
-            inputs.append(inputs_temp[i])
-            outputs.append(outputs_temp[i])
-        elif probably(distribution):
-            inputs.append(inputs_temp[i])
-            outputs.append(outputs_temp[i])
+        if probably(nerf_ratio):
+            if outputs_temp[i] == 1:
+                inputs.append(inputs_temp[i])
+                outputs.append(outputs_temp[i])
+            elif probably(distribution):
+                inputs.append(inputs_temp[i])
+                outputs.append(outputs_temp[i])
 
     distribution = len([x for x in outputs if x == 1]) / len([x for x in outputs if x == 0])
-    print(distribution)
+    # print(distribution)
 
     return inputs, outputs
 
@@ -136,7 +134,7 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
     inputs = []
     outputs = []
 
-    if lang == "all":
+    if lang == "universal":
         out_path = "./data/weights/universal" + name
         langs = get_langs()
     else:
@@ -207,7 +205,7 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
 
             y_train_pred = model(X_train_batch)
 
-            train_loss, train_acc = custom_loss_with_accu(y_train_pred, y_train_batch, model)
+            train_loss, train_acc = custom_loss_with_accu(y_train_pred, y_train_batch)
             train_loss.backward()
 
             optimizer.step()
@@ -225,7 +223,7 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
             for X_val_batch, y_val_batch in val_loader:
                 X_val_batch, y_val_batch = X_val_batch.to(device), y_val_batch.to(device)
                 y_val_pred = model(X_val_batch)
-                val_loss, val_acc = custom_loss_with_accu(y_val_pred, y_val_batch, model)
+                val_loss, val_acc = custom_loss_with_accu(y_val_pred, y_val_batch)
                 val_epoch_loss += val_loss
                 val_epoch_acc += val_acc
 

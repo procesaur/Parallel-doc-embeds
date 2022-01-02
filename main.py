@@ -128,17 +128,18 @@ def gen_combinations(bert=False, lang=""):
 
 
 def generate_csvs_with_weights(lang_weights, lang_apply, bert=False):
+
     wanted = ["pos", "word", "lemma", "masked_2", "masked_3"]
-    modelname = "miniNN"
+
     if bert:
+        lang_weights += "_b"
         wanted.append("bert")
-        modelname = "miniNN_b"
+
+    path = "./data/weights/" + lang_weights
+    weights = torchworks.get_weights(path)
+    path_apply = "./data/document_embeds/" + lang_apply + "/"
 
     wanted = sorted(wanted)
-    path = "./data/document_embeds/" + lang_weights + "/" + modelname
-    weights = torchworks.get_weights(path)
-    #weights = sigmoid(weights)
-    path_apply = "./data/document_embeds/" + lang_apply + "/"
     matrices = []
     for x in wanted:
         matrices.append(pd.read_csv(path_apply + x + ".csv", sep=" ", engine='python', index_col=0))
@@ -153,14 +154,13 @@ def generate_csvs_with_weights(lang_weights, lang_apply, bert=False):
             df += dfs*w
 
     df = df / numpy.sum(weights)
-    #df = df.transform(lambda x: [-y for y in x])
-    df.to_csv(path_or_buf="./data/document_embeds/" + lang_apply + "/" + modelname + ".csv", sep=" ", float_format='%.7f')
+
+    df.to_csv(path_or_buf=path_apply + "/weights_" + lang_weights + ".csv", sep=" ", float_format='%.7f')
 
 
 def all_classification_report():
     langs = get_langs()
     for lang in langs:
-        print(lang + "  > ")
         classification_test(lang)
 
 
@@ -189,35 +189,24 @@ def get_test_set(authors_novels):
     return items, classes
 
 
-#torchworks.train_mini(lang="srp", bert=False)
-#torchworks.train_mini(lang="srp", bert=True)
-#torchworks.train_mini(lang="por", bert=False)
-#torchworks.train_mini(lang="por", bert=True)
-# generate_csvs_with_weights("srp", "srp", bert=False)
-# generate_csvs_with_weights("srp", "srp", bert=True)
-# generate_csvs_with_weights("srp", "slv", bert=False)
-# generate_csvs_with_weights("srp", "slv", bert=True)
-# generate_csvs_with_weights("srp", "fra", bert=True)
-# generate_csvs_with_weights("srp", "fra", bert=False)
-#generate_csvs_with_weights("por", "por", bert=True)
-#generate_csvs_with_weights("por", "por", bert=False)
-
-#classification_test("srp")
-#classification_test("slv")
-#classification_test("por")
+def transfer_learning():
+    dic = {
+        "srp": "slv",
+        "slv": "srp",
+        "fra": "por",
+        "por": "fra",
+        "deu": "eng",
+        "eng": "deu"
+    }
+    for key in dic:
+        generate_csvs_with_weights(key, dic[key], bert=False)
+        generate_csvs_with_weights(key, dic[key], bert=True)
 
 
-for lang in get_langs():
-    # train weights without bert
-    torchworks.train_mini(lang=lang, bert=False)
-    # train weights with bert
-    torchworks.train_mini(lang=lang, bert=True)
-
-# pipeline
 if False:
 
-    torchworks.train_mini(lang="all", bert=False)
-    torchworks.train_mini(lang="all", bert=True)
+    torchworks.train_mini(lang="universal", bert=False)
+    torchworks.train_mini(lang="universal", bert=True)
     # for each language
     for lang in get_langs():
         # generate simple combinations without bert
@@ -230,7 +219,12 @@ if False:
         # train weights with bert
         torchworks.train_mini(lang=lang, bert=True)
 
+        # generate combinations using universal weights
+        generate_csvs_with_weights("universal", lang, bert=False)
+        generate_csvs_with_weights("universal", lang, bert=True)
+        generate_csvs_with_weights(lang, lang, bert=False)
+        generate_csvs_with_weights(lang, lang, bert=True)
 
 
-        # all_classification_report()
-        classification_test(lang)
+    transfer_learning()
+    all_classification_report()
