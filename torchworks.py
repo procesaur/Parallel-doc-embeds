@@ -58,7 +58,7 @@ def get_weights(modelpath):
     weights = model.layer_out.weight
     weights = flatten(weights)
     weights = [x.item() for x in list(weights)]
-    print(weights)
+    #print(weights)
     return weights
 
 
@@ -68,7 +68,7 @@ def get_epochs_n(n):
     return epochs
 
 
-def transform_matrices(dfs, rows_ex, cols_ex, nerf=295936):
+def transform_matrices(dfs, rows_ex, cols_ex, nerf=6384):
     inputs = []
     outputs = []
     inputs_temp = []
@@ -76,8 +76,6 @@ def transform_matrices(dfs, rows_ex, cols_ex, nerf=295936):
     wanted = dfs.keys()
     columns = [x for x in dfs["lemma"].columns if "_" in x]
     n = len(columns)
-
-    nerf_ratio = nerf / n*n
 
     for i in range(0, n):
         if columns[i] not in rows_ex:
@@ -104,16 +102,25 @@ def transform_matrices(dfs, rows_ex, cols_ex, nerf=295936):
     distribution = len([x for x in outputs_temp if x == 1])/len([x for x in outputs_temp if x == 0])
     # print(distribution)
     for i in range(0, len(outputs_temp)):
+        if outputs_temp[i] == 1:
+            inputs.append(inputs_temp[i])
+            outputs.append(outputs_temp[i])
+        elif probably(distribution):
+            inputs.append(inputs_temp[i])
+            outputs.append(outputs_temp[i])
+
+    outputs_temp, outputs = outputs.copy(), []
+    inputs_temp, inputs = inputs.copy(), []
+    nerf_ratio = nerf/len(outputs_temp)
+
+    for i in range(0, len(outputs_temp)):
         if probably(nerf_ratio):
-            if outputs_temp[i] == 1:
-                inputs.append(inputs_temp[i])
-                outputs.append(outputs_temp[i])
-            elif probably(distribution):
-                inputs.append(inputs_temp[i])
-                outputs.append(outputs_temp[i])
+            inputs.append(inputs_temp[i])
+            outputs.append(outputs_temp[i])
 
     distribution = len([x for x in outputs if x == 1]) / len([x for x in outputs if x == 0])
-    # print(distribution)
+    print(len(inputs))
+    print(len(outputs))
 
     return inputs, outputs
 

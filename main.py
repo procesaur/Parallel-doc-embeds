@@ -203,6 +203,23 @@ def transfer_learning():
         generate_csvs_with_weights(key, dic[key], bert=True)
 
 
+def write_weights(path="./data/weights/"):
+    with_b = [x for x in os.listdir(path) if "_b" in x]
+    no_b = [x for x in os.listdir(path) if "_b" not in x]
+    wanted = ["pos", "word", "lemma", "masked_2", "masked_3"]
+    wanted = sorted(wanted)
+    print("\t" + "\t".join(wanted)+"\tbert")
+    for x in no_b:
+        print(x+"\t"+"\t".join([str(v) for v in torchworks.get_weights(path + x)]))
+    for x in with_b:
+        res = torchworks.get_weights(path + x)
+        res.append(res.pop(0))
+        print(x+"\t"+"\t".join([str(v) for v in res]))
+
+
+
+
+all_classification_report()
 if False:
 
     torchworks.train_mini(lang="universal", bert=False)
@@ -225,6 +242,6 @@ if False:
         generate_csvs_with_weights(lang, lang, bert=False)
         generate_csvs_with_weights(lang, lang, bert=True)
 
-
     transfer_learning()
+    write_weights()
     all_classification_report()
