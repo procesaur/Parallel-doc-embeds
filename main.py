@@ -76,11 +76,10 @@ def classification_test(lang, easy=False):
 
 def generate_comp_all(method, lang, name, bert=False):
     data = load_langdata(lang)
-    methods = ["add", "mult", "min", "max", "vnorm"]
     if bert:
-        csvs = [x for x in data if x not in methods]
+        csvs = ["bert", "lemma", "masked_2", "masked_2", "pos", "word"]
     else:
-        csvs = [x for x in data if x not in methods and x != "bert"]
+        csvs = ["lemma", "masked_2", "masked_2", "pos", "word"]
     dflist = [data[x] for x in data if x in csvs]
     if method == "mult":
         for i, x in enumerate(csvs):
@@ -217,9 +216,9 @@ def write_weights(path="./data/weights/"):
         print(x+"\t"+"\t".join([str(v) for v in res]))
 
 
-
-
-all_classification_report()
+generate_csvs_with_weights("eng", "hun", bert=False)
+generate_csvs_with_weights("eng", "hun", bert=True)
+classification_test("hun")
 if False:
 
     torchworks.train_mini(lang="universal", bert=False)
