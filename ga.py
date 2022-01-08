@@ -31,9 +31,9 @@ def crossover(parents, offspring_size):
 
     for k in range(offspring_size[0]):
         # Index of the first parent to mate.
-        parent1_idx = k%parents.shape[0]
+        parent1_idx = k % parents.shape[0]
         # Index of the second parent to mate.
-        parent2_idx = (k+1)%parents.shape[0]
+        parent2_idx = (k+1) % parents.shape[0]
         # The new offspring will have its first half of its genes taken from the first parent.
         offspring[k, 0:crossover_point] = parents[parent1_idx, 0:crossover_point]
         # The new offspring will have its second half of its genes taken from the second parent.
@@ -66,8 +66,8 @@ def get_error_int(x1, x2):
     sns.distplot(x1, kde_kws=clip)
     ax = sns.distplot(x2, kde_kws=clip)
 
-    area1 = numpy.trapz(ax.lines[0].get_ydata(), ax.lines[0].get_xdata())
-    area2 = numpy.trapz(ax.lines[1].get_ydata(), ax.lines[1].get_xdata())
+    # area1 = numpy.trapz(ax.lines[0].get_ydata(), ax.lines[0].get_xdata())
+    # area2 = numpy.trapz(ax.lines[1].get_ydata(), ax.lines[1].get_xdata())
     ymin = numpy.minimum(ax.lines[0].get_ydata(), ax.lines[1].get_ydata())
     area_overlap = numpy.trapz(ymin, ax.lines[0].get_xdata())
     return 1-area_overlap
@@ -82,8 +82,8 @@ def get_error(a, b):
     else:
         int_a = [x for x in a if x > mini]
         int_b = [x for x in b if x < maxi]
-        err_a = len(int_a)/len(a)
-        err_b = len(int_b) / len(b)
+        # err_a = len(int_a)/len(a)
+        # err_b = len(int_b) / len(b)
         err = (len(int_a)+len(int_b))*100/total
         return 100 - err
 

@@ -4,12 +4,10 @@ import random
 from tqdm import tqdm
 import numpy as np
 import os
-
 from transformers import BertTokenizer, BertModel
 import torch
 
 from helpers import get_langs
-
 
 torch.manual_seed(0)
 random.seed(0)
@@ -78,7 +76,7 @@ def embed_sentence(sentence, tokenizer, model):
     return sentence_embedding_sum
 
 
-def generate_embeddings(documents):
+def generate_embeddings(docs):
     tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
     model = BertModel.from_pretrained('bert-base-multilingual-cased').to(device)
     model.eval()
@@ -86,7 +84,7 @@ def generate_embeddings(documents):
     embeddings_per_document = []
     embeddings_per_paragraph = []
 
-    with tqdm(documents, unit="document", desc=f"Generating embeddings") as pbar:
+    with tqdm(docs, unit="document", desc=f"Generating embeddings") as pbar:
         for doc in pbar:
 
             doc_embedding = torch.zeros(768).to(device)
@@ -126,6 +124,6 @@ for lang in get_langs("./data/chunks"):
     document_embedings = generate_embeddings(documents)
     de = [x.cpu() for x in document_embedings]
     document_embedings = np.stack(de)
-    pairwise_similarities=cosine_similarity(document_embedings)
+    pairwise_similarities = cosine_similarity(document_embedings)
     df = pd.DataFrame(pairwise_similarities, columns=chunksnames, index=chunksnames)
     df.to_csv("./data/document_embeds/" + lang + "/bert.csv", sep=" ")

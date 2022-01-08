@@ -1,8 +1,6 @@
-import numpy
-import pandas as pd
 import torch
-from sklearn.metrics import classification_report as report,  precision_recall_fscore_support as score
-from sklearn.metrics import accuracy_score, roc_auc_score, fbeta_score, auc
+from sklearn.metrics import precision_recall_fscore_support as score
+from sklearn.metrics import accuracy_score, fbeta_score
 import numpy as np
 from helpers import *
 import torchworks
@@ -16,11 +14,8 @@ def classify_and_report(df):
         guesses.append(row["guess"].split("_")[0])
         correct.append(i.split("_")[0])
 
-
     macro_prec, macro_rcl, macro_f, support = score(correct, guesses, average='macro', zero_division=1)
-    #aucx = auc(correct, guesses)
     fbeta = fbeta_score(correct, guesses, beta=0.5, average='macro')
-    #w_prec, w_rcl, w_f, support = score(correct, guesses, average='weighted', zero_division=1)
     acc = accuracy_score(correct, guesses)
     vals = [acc, macro_prec, macro_rcl, macro_f, fbeta]
     return vals
@@ -39,7 +34,6 @@ def classification_test(lang, easy=False):
 
     results_easy = {}
     results_hard = {}
-    loss = {}
 
     items, classes = get_test_set(authors_novels)
     single_authors = get_author_single(authors_novels)
@@ -53,7 +47,7 @@ def classification_test(lang, easy=False):
             results_easy[df_name] = classify_and_report(df_easy)
 
         else:
-            #hard test
+            # hard test
             df_hard = data[df_name].copy()
             chunks = df_hard
             drop_items = []
@@ -70,12 +64,7 @@ def classification_test(lang, easy=False):
             df_hard = df_hard.drop(index=drop_items)
             results_hard[df_name] = classify_and_report(df_hard)
 
-    #for df_name in data:
-    #    loss[df_name] = get_loss(data[df_name])
-
     print("\t".join(["model", "acc", "prec", "rec", "f-1", "f-0.5"]))
-    embeds = ["word", "pos", "lemma", "add", "mult", "add_w", "mult_w"]
-    embeds = ["bert", "word", "pos", "lemma"]
 
     if easy:
         for df_name in results_easy:
@@ -94,17 +83,15 @@ def generate_comp_all(method, lang, name, bert=False):
     columns = data["lemma"].columns
     dflist = [data[x] for x in data if x in csvs]
     if method == "mult":
+        df = data[0]
         for i, x in enumerate(csvs):
-            if i == 0:
-                df = data[x]
-            else:
+            if i > 0:
                 df = df*data[x]
 
     elif method == "add":
+        df = data[0]
         for i, x in enumerate(csvs):
-            if i == 0:
-                df = data[x]
-            else:
+            if i > 0:
                 df = df+data[x]
         df = df/len(data)
 
@@ -115,19 +102,18 @@ def generate_comp_all(method, lang, name, bert=False):
         df = pd.concat(dflist).max(level=0)
 
     elif method == "vnorm":
+        df = data[0] ** 2
         for i, x in enumerate(csvs):
-            if i == 0:
-                df = data[x]**2
-            else:
+            if i > 0:
                 df = df+data[x]**2
         df = df.transform(lambda x: [math.sqrt(y) for y in x])
 
-    elif method == "nn":
+    else:
         dfs = []
         for x in csvs:
             dfs.append(torch.tensor(data[x].values))
         dfst = torch.stack(dfs)
-        mpath= "./data/weights/universal_M"
+        mpath = "./data/weights/universal_M"
         if bert:
             mpath += "_b"
         mpath += "-"+lang
@@ -199,7 +185,7 @@ def get_test_set(authors_novels):
     classes = []
     for author in authors_novels:
 
-        novels_with_n_chunks = [x for x in authors_novels[author] if len(authors_novels[author][x])>2]
+        novels_with_n_chunks = [x for x in authors_novels[author] if len(authors_novels[author][x]) > 2]
         # if there is at list n such novels
         if len(novels_with_n_chunks) > 2:
             ablenovs = novels_with_n_chunks[:3]
@@ -211,7 +197,7 @@ def get_test_set(authors_novels):
                 classes.append(authors_novels[author][novel][rand2])
             else:
                 items += authors_novels[author][novel][:3]
-            #testch[novel] = random.sample(authors_novels[author][novel], 3)
+            # testch[novel] = random.sample(authors_novels[author][novel], 3)
 
     return items, classes
 
@@ -229,7 +215,7 @@ def transfer_learning(bert=False):
         for lang2 in langs:
             l2w = torchworks.get_weights(path + lang2)
             value = numpy.linalg.norm(np.array(l1w)-np.array(l2w))
-            if lang1==lang2:
+            if lang1 == lang2:
                 df[lang1][lang2] = numpy.Inf
             else:
                 df[lang1][lang2] = value
@@ -256,10 +242,7 @@ def write_weights(path="./data/weights/"):
         print(x+"\t"+"\t".join([str(v) for v in res]))
 
 
-
-write_weights()
-if False:
-
+def main():
     # for each language
     for lang in get_langs():
         if lang != "srp":
@@ -282,8 +265,7 @@ if False:
             generate_csvs_with_weights("universal", lang, exc=lang, bert=False)
             generate_csvs_with_weights("universal", lang, exc=lang, bert=True)
 
-
     transfer_learning()
-    transfer_learning("bert")
+    transfer_learning(True)
     write_weights()
     all_classification_report()

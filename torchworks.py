@@ -6,7 +6,6 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
-
 from helpers import probably, flatten, get_langs
 
 
@@ -74,7 +73,6 @@ def get_weights(modelpath):
     weights = weights / torch.sum(weights)
     weights = flatten(weights)
     weights = [x.item() for x in list(weights)]
-    #print(weights)
     return weights
 
 
@@ -134,9 +132,7 @@ def transform_matrices(dfs, rows_ex, cols_ex, nerf=6384):
             inputs.append(inputs_temp[i])
             outputs.append(outputs_temp[i])
 
-    distribution = len([x for x in outputs if x == 1]) / len([x for x in outputs if x == 0])
-    #print(len(inputs))
-    #print(len(outputs))
+    # distribution = len([x for x in outputs if x == 1]) / len([x for x in outputs if x == 0])
 
     return inputs, outputs
 
@@ -228,10 +224,6 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
 
     for e in range(1, epochs + 1):
 
-        #if maxw:
-            #with torch.no_grad():
-                #model.layer_out.weight = nn.Parameter(model.layer_out.weight * model.mask_use)
-
         # TRAINING
         train_epoch_loss = 0
         train_epoch_acc = 0
@@ -289,7 +281,7 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
     print(model.layer_out.weight)
 
 
-def test_mini(dfs, modelpath ="./data/weights/srp_M", bert=False):
+def test_mini(dfs, modelpath="./data/weights/srp_M", bert=False):
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     if bert:
