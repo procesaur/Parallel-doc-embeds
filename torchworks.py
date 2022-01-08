@@ -15,11 +15,25 @@ class miniNN(nn.Module):
     def __init__(self, num_feature):
         super(miniNN, self).__init__()
         self.layer_out = nn.Linear(num_feature, 1)
-        self.relu = nn.ReLU()
 
     def forward(self, x):
         x = self.layer_out(x)
         return x
+
+
+class customNN(nn.Module):
+
+    def __init__(self, num_features):
+        super(customNN, self).__init__()
+        self.mask_use = torch.zeros(num_features, num_features)
+        for n in range(0, num_features):
+            self.mask_use[n, n] = 1
+        self.layer_out = nn.Linear(num_features, num_features)
+        self.layer_out.weight = nn.Parameter(self.layer_out.weight * self.mask_use)
+
+    def forward(self, x):
+        x = self.layer_out(x)
+        return torch.max(x, 1, keepdim=True).values
 
 
 class ClassifierDataset(Dataset):
@@ -48,14 +62,16 @@ def custom_loss_with_accu(pred_batch, batch):
 
 
 def get_weights(modelpath):
-    n = 5
-    if modelpath.endswith('_b'):
-        n = 6
+    n = 4
+    if '_b' in modelpath:
+        n = 5
+
     model = miniNN(num_feature=n)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model.load_state_dict(torch.load(modelpath, map_location=torch.device(device)))
     model.to(device)
     weights = model.layer_out.weight
+    weights = weights / torch.sum(weights)
     weights = flatten(weights)
     weights = [x.item() for x in list(weights)]
     #print(weights)
@@ -63,7 +79,7 @@ def get_weights(modelpath):
 
 
 def get_epochs_n(n):
-    epochs = round(500000/n)+50
+    epochs = round(1000000/n)+200
     print(epochs)
     return epochs
 
@@ -119,17 +135,19 @@ def transform_matrices(dfs, rows_ex, cols_ex, nerf=6384):
             outputs.append(outputs_temp[i])
 
     distribution = len([x for x in outputs if x == 1]) / len([x for x in outputs if x == 0])
-    print(len(inputs))
-    print(len(outputs))
+    #print(len(inputs))
+    #print(len(outputs))
 
     return inputs, outputs
 
 
-def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="",
-               batch_size=64, lr=0.01, val_size=0.2):
+def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="", exc="",
+               batch_size=64, lr=0.01, val_size=0.2, maxw=False):
 
     if wanted is None:
-        wanted = ["pos", "word", "lemma", "masked_2", "masked_3"]
+        wanted = ["pos", "word", "lemma", "masked_2"]
+    if maxw:
+        name += "_M"
     if bert:
         wanted.append("bert")
         name += "_b"
@@ -143,7 +161,10 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
 
     if lang == "universal":
         out_path = "./data/weights/universal" + name
-        langs = get_langs()
+        if exc != "":
+            out_path += "-" + exc
+        langs = [x for x in get_langs() if x != exc]
+
     else:
         out_path = "./data/weights/" + lang + name
         langs = [lang]
@@ -167,6 +188,8 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
         outputs += lang_outputs
 
     epochs = get_epochs_n(len(outputs))
+    if lang == "universal":
+        epochs = epochs - 200
 
     X_train, X_val, y_train, y_val = train_test_split(inputs, outputs, test_size=val_size, stratify=outputs,
                                                       random_state=1)
@@ -181,7 +204,11 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
     val_loader = DataLoader(dataset=val_dataset, batch_size=1)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    model = miniNN(len(wanted))
+
+    if maxw:
+        model = customNN(len(wanted))
+    else:
+        model = miniNN(len(wanted))
 
     model.to(device)
 
@@ -201,6 +228,10 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
 
     for e in range(1, epochs + 1):
 
+        #if maxw:
+            #with torch.no_grad():
+                #model.layer_out.weight = nn.Parameter(model.layer_out.weight * model.mask_use)
+
         # TRAINING
         train_epoch_loss = 0
         train_epoch_acc = 0
@@ -211,10 +242,9 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
             optimizer.zero_grad()
 
             y_train_pred = model(X_train_batch)
-
             train_loss, train_acc = custom_loss_with_accu(y_train_pred, y_train_batch)
-            train_loss.backward()
 
+            train_loss.backward()
             optimizer.step()
 
             train_epoch_loss += train_loss
@@ -259,3 +289,18 @@ def train_mini(lang, bert=False, rows_ex=None, cols_ex=None, wanted=None, name="
     print(model.layer_out.weight)
 
 
+def test_mini(dfs, modelpath ="./data/weights/srp_M", bert=False):
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    if bert:
+        model = customNN(4)
+    else:
+        model = customNN(3)
+    model.load_state_dict(torch.load(modelpath, map_location=torch.device(device)))
+    model.to(device)
+    dfs = dfs.permute(1, 2, 0).float()
+    output = []
+    for x in range(0, list(dfs.size())[0]):
+        output.append(model(dfs[x]))
+    output = torch.stack(output)
+    return output

@@ -1,4 +1,8 @@
-from sklearn.metrics import classification_report, precision_recall_fscore_support as score, accuracy_score
+import numpy
+import pandas as pd
+import torch
+from sklearn.metrics import classification_report as report,  precision_recall_fscore_support as score
+from sklearn.metrics import accuracy_score, roc_auc_score, fbeta_score, auc
 import numpy as np
 from helpers import *
 import torchworks
@@ -13,11 +17,12 @@ def classify_and_report(df):
         correct.append(i.split("_")[0])
 
 
-    macro_prec, macro_rcl, macro_f, support = score(correct, guesses,
-                                                    average='macro', zero_division=1)
+    macro_prec, macro_rcl, macro_f, support = score(correct, guesses, average='macro', zero_division=1)
+    #aucx = auc(correct, guesses)
+    fbeta = fbeta_score(correct, guesses, beta=0.5, average='macro')
     #w_prec, w_rcl, w_f, support = score(correct, guesses, average='weighted', zero_division=1)
     acc = accuracy_score(correct, guesses)
-    vals = [macro_prec, macro_rcl, macro_f, acc]
+    vals = [acc, macro_prec, macro_rcl, macro_f, fbeta]
     return vals
 
 
@@ -26,6 +31,12 @@ def classification_test(lang, easy=False):
     data = load_langdata(lang)
     authors_novels, authors, novels, chunks = a_n(lang, plus=True)
 
+    baseline = ["bert", "word", "pos", "lemma"]
+    baseline2 = ["masked_2"]
+    comb = ["add", "max", "min", "mult", "vnorm"]
+
+    csvs = baseline + baseline2 + flatten_list([[x, x + "_b"] for x in comb]) + [x for x in data if "weight" in x]
+
     results_easy = {}
     results_hard = {}
     loss = {}
@@ -33,7 +44,7 @@ def classification_test(lang, easy=False):
     items, classes = get_test_set(authors_novels)
     single_authors = get_author_single(authors_novels)
 
-    for df_name in data:
+    for df_name in csvs:
         if easy:
             # easy test
             df_easy = data[df_name].copy()
@@ -62,7 +73,7 @@ def classification_test(lang, easy=False):
     #for df_name in data:
     #    loss[df_name] = get_loss(data[df_name])
 
-    print("\t".join(["model", "prec", "rec", "f1", "acc"]))
+    print("\t".join(["model", "acc", "prec", "rec", "f-1", "f-0.5"]))
     embeds = ["word", "pos", "lemma", "add", "mult", "add_w", "mult_w"]
     embeds = ["bert", "word", "pos", "lemma"]
 
@@ -77,9 +88,10 @@ def classification_test(lang, easy=False):
 def generate_comp_all(method, lang, name, bert=False):
     data = load_langdata(lang)
     if bert:
-        csvs = ["bert", "lemma", "masked_2", "masked_2", "pos", "word"]
+        csvs = ["bert", "lemma", "pos", "word", "masked_2"]
     else:
-        csvs = ["lemma", "masked_2", "masked_2", "pos", "word"]
+        csvs = ["lemma", "pos", "word", "masked_2"]
+    columns = data["lemma"].columns
     dflist = [data[x] for x in data if x in csvs]
     if method == "mult":
         for i, x in enumerate(csvs):
@@ -110,6 +122,20 @@ def generate_comp_all(method, lang, name, bert=False):
                 df = df+data[x]**2
         df = df.transform(lambda x: [math.sqrt(y) for y in x])
 
+    elif method == "nn":
+        dfs = []
+        for x in csvs:
+            dfs.append(torch.tensor(data[x].values))
+        dfst = torch.stack(dfs)
+        mpath= "./data/weights/universal_M"
+        if bert:
+            mpath += "_b"
+        mpath += "-"+lang
+        df = torchworks.test_mini(dfst, modelpath=mpath, bert=bert)
+        df = df.detach().numpy()
+        df = numpy.squeeze(df, axis=2)
+        df = pd.DataFrame(df, columns=columns, index=columns)
+
     if bert:
         df.to_csv(path_or_buf="./data/document_embeds/" + lang + "/" + name + "_b.csv", sep=" ", float_format='%.7f')
     else:
@@ -126,14 +152,16 @@ def gen_combinations(bert=False, lang=""):
             generate_comp_all(method, lang, method, bert)
 
 
-def generate_csvs_with_weights(lang_weights, lang_apply, bert=False):
+def generate_csvs_with_weights(lang_weights, lang_apply, bert=False, exc=""):
 
-    wanted = ["pos", "word", "lemma", "masked_2", "masked_3"]
+    wanted = ["pos", "word", "lemma", "masked_2"]
 
     if bert:
         lang_weights += "_b"
         wanted.append("bert")
 
+    if exc != "":
+        lang_weights += "-" + exc
     path = "./data/weights/" + lang_weights
     weights = torchworks.get_weights(path)
     path_apply = "./data/document_embeds/" + lang_apply + "/"
@@ -188,24 +216,36 @@ def get_test_set(authors_novels):
     return items, classes
 
 
-def transfer_learning():
-    dic = {
-        "srp": "slv",
-        "slv": "srp",
-        "fra": "por",
-        "por": "fra",
-        "deu": "eng",
-        "eng": "deu"
-    }
-    for key in dic:
-        generate_csvs_with_weights(key, dic[key], bert=False)
-        generate_csvs_with_weights(key, dic[key], bert=True)
+def transfer_learning(bert=False):
+    path = "./data/weights/"
+    langs = get_langs()
+    savepath = "./data/lang_weight_distances.csv"
+    if bert:
+        savepath = "./data/lang_weight_distances_b.csv"
+        langs = [x+"_b" for x in langs]
+    df = pd.DataFrame(columns=langs, index=langs)
+    for lang1 in langs:
+        l1w = torchworks.get_weights(path + lang1)
+        for lang2 in langs:
+            l2w = torchworks.get_weights(path + lang2)
+            value = numpy.linalg.norm(np.array(l1w)-np.array(l2w))
+            if lang1==lang2:
+                df[lang1][lang2] = numpy.Inf
+            else:
+                df[lang1][lang2] = value
+
+    df.to_csv(savepath, sep=",", float_format='%.7f')
+    df = df.astype(float)
+    df['closest'] = df.idxmin(axis=1)
+    for lang1 in langs:
+        lang2 = df['closest'][lang1]
+        generate_csvs_with_weights(lang2.replace("_b", ""), lang1.replace("_b", ""), bert=bert)
 
 
 def write_weights(path="./data/weights/"):
     with_b = [x for x in os.listdir(path) if "_b" in x]
     no_b = [x for x in os.listdir(path) if "_b" not in x]
-    wanted = ["pos", "word", "lemma", "masked_2", "masked_3"]
+    wanted = ["pos", "word", "lemma", "masked_2"]
     wanted = sorted(wanted)
     print("\t" + "\t".join(wanted)+"\tbert")
     for x in no_b:
@@ -216,31 +256,34 @@ def write_weights(path="./data/weights/"):
         print(x+"\t"+"\t".join([str(v) for v in res]))
 
 
-generate_csvs_with_weights("eng", "hun", bert=False)
-generate_csvs_with_weights("eng", "hun", bert=True)
-classification_test("hun")
+
+write_weights()
 if False:
 
-    torchworks.train_mini(lang="universal", bert=False)
-    torchworks.train_mini(lang="universal", bert=True)
     # for each language
     for lang in get_langs():
-        # generate simple combinations without bert
-        gen_combinations(bert=False, lang=lang)
-        # generate simple combinations without bert
-        gen_combinations(bert=True, lang=lang)
+        if lang != "srp":
 
-        # train weights without bert
-        torchworks.train_mini(lang=lang, bert=False)
-        # train weights with bert
-        torchworks.train_mini(lang=lang, bert=True)
+            # train weights without bert
+            torchworks.train_mini(lang=lang, bert=False)
+            # train weights with bert
+            torchworks.train_mini(lang=lang, bert=True)
 
-        # generate combinations using universal weights
-        generate_csvs_with_weights("universal", lang, bert=False)
-        generate_csvs_with_weights("universal", lang, bert=True)
-        generate_csvs_with_weights(lang, lang, bert=False)
-        generate_csvs_with_weights(lang, lang, bert=True)
+            # train universal weights without bias
+            torchworks.train_mini(lang="universal", exc=lang, bert=False)
+            torchworks.train_mini(lang="universal", exc=lang, bert=True)
+
+            # generate simple combinations without bert
+            gen_combinations(bert=False, lang=lang)
+            # generate simple combinations without bert
+            gen_combinations(bert=True, lang=lang)
+
+            # generate combinations using universal weights
+            generate_csvs_with_weights("universal", lang, exc=lang, bert=False)
+            generate_csvs_with_weights("universal", lang, exc=lang, bert=True)
+
 
     transfer_learning()
+    transfer_learning("bert")
     write_weights()
     all_classification_report()

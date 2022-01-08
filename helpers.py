@@ -47,6 +47,10 @@ def average_list(a1):
     return sum(a1)/len(a1)
 
 
+def flatten_list(t):
+    return [item for sublist in t for item in sublist]
+
+
 def softmax(vector):
     e = numpy.exp(vector)
     return e / e.sum()
