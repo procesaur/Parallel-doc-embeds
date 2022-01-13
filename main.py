@@ -1,9 +1,11 @@
 import torch
-from sklearn.metrics import precision_recall_fscore_support as score
+from sklearn.metrics import precision_recall_fscore_support as score, multilabel_confusion_matrix, confusion_matrix
 from sklearn.metrics import accuracy_score, fbeta_score
 import numpy as np
 from helpers import *
 import torchworks
+import sys
+numpy.set_printoptions(threshold=sys.maxsize)
 
 
 def classify_and_report(df):
@@ -18,7 +20,13 @@ def classify_and_report(df):
     fbeta = fbeta_score(correct, guesses, beta=0.5, average='macro')
     acc = accuracy_score(correct, guesses)
     vals = [acc, macro_prec, macro_rcl, macro_f, fbeta]
-    return vals
+    conf = confusion_matrix(correct, guesses)
+    corr_guess = ""
+    for i, x in enumerate(correct):
+        corr_guess += "\n" + x + " > " + guesses[i]
+    conf = corr_guess
+
+    return vals, macro_f, conf
 
 
 def classification_test(lang, easy=False):
@@ -29,49 +37,62 @@ def classification_test(lang, easy=False):
     baseline = ["bert", "word", "pos", "lemma"]
     baseline2 = ["masked_2"]
     comb = ["add", "max", "min", "mult", "vnorm"]
+    comb = flatten_list([[x, x + "_b"] for x in comb])
+    weighted = [x for x in data if "weight" in x]
+    csvs = baseline + baseline2 + comb + weighted
 
-    csvs = baseline + baseline2 + flatten_list([[x, x + "_b"] for x in comb]) + [x for x in data if "weight" in x]
-
-    results_easy = {}
-    results_hard = {}
+    results = {}
 
     items, classes = get_test_set(authors_novels)
     single_authors = get_author_single(authors_novels)
 
+    confusion = {}
+
     for df_name in csvs:
-        if easy:
-            # easy test
-            df_easy = data[df_name].copy()
-            df_easy = df_easy.drop(index=[x for x in chunks if x not in items],
-                                   columns=[x for x in chunks if x not in classes])
-            results_easy[df_name] = classify_and_report(df_easy)
+        confusion[df_name] = {}
 
-        else:
-            # hard test
-            df_hard = data[df_name].copy()
-            chunks = df_hard
-            drop_items = []
-            for x in chunks:
-                for y in chunks:
-                    xs = x.split("_")
-                    if xs[0] in single_authors:
-                        drop_items.append(x)
-                    else:
-                        ys = y.split("_")
-                        if xs[0] == ys[0] and xs[1] == ys[1]:
-                            df_hard.at[x, y] = np.inf
+        df = data[df_name].copy()
+        chunks = df
+        drop_items = []
+        for x in chunks:
+            for y in chunks:
+                xs = x.split("_")
+                if xs[0] in single_authors:
+                    drop_items.append(x)
+                else:
+                    ys = y.split("_")
+                    if xs[0] == ys[0] and xs[1] == ys[1]:
+                        df.at[x, y] = np.inf
 
-            df_hard = df_hard.drop(index=drop_items)
-            results_hard[df_name] = classify_and_report(df_hard)
+        df = df.drop(index=drop_items)
+        vals, f1, conf = classify_and_report(df)
+        results[df_name] = vals
+        confusion[df_name] = f1, conf
+
+    base_top, base_conf = top(confusion, baseline)
+    imp_top, inp_conf = top(confusion, comb+weighted)
 
     print("\t".join(["model", "acc", "prec", "rec", "f-1", "f-0.5"]))
 
-    if easy:
-        for df_name in results_easy:
-            print(df_name+"\t" + "\t".join([str(round(x, 4)) for x in results_easy[df_name]]))
-    else:
-        for df_name in results_hard:
-            print(df_name + "\t" + "\t".join([str(round(x, 4)) for x in results_hard[df_name]]))
+    for df_name in results:
+        print(df_name + "\t" + "\t".join([str(round(x, 4)) for x in results[df_name]]))
+    print("best base > " + base_top + " > ")
+    print(base_conf)
+    print("best new > " + imp_top + " > ")
+    print(inp_conf)
+
+
+def top(dic, list):
+    best = 0
+    name = ""
+    conf = ""
+    for x in list:
+        val = dic[x][0]
+        if val >= best:
+            best = val
+            name = x
+            conf = dic[x][1]
+    return name, conf
 
 
 def generate_comp_all(method, lang, name, bert=False):
@@ -269,3 +290,6 @@ def main():
     transfer_learning(True)
     write_weights()
     all_classification_report()
+
+
+classification_test("srp")
