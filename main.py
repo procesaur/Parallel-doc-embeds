@@ -292,4 +292,4 @@ def main():
     all_classification_report()
 
 
-classification_test("srp")
+all_classification_report()
