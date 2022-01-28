@@ -1,5 +1,5 @@
 import torch
-from sklearn.metrics import precision_recall_fscore_support as score, multilabel_confusion_matrix, confusion_matrix
+from sklearn.metrics import precision_recall_fscore_support as score, classification_report
 from sklearn.metrics import accuracy_score, fbeta_score
 import numpy as np
 from helpers import *
@@ -16,20 +16,21 @@ def classify_and_report(df):
         guesses.append(row["guess"].split("_")[0])
         correct.append(i.split("_")[0])
 
-    macro_prec, macro_rcl, macro_f, support = score(correct, guesses, average='macro', zero_division=1)
-    fbeta = fbeta_score(correct, guesses, beta=0.5, average='macro')
+    prec, rcl, f1, support = score(correct, guesses, average='weighted', zero_division=1)
+    fbeta = fbeta_score(correct, guesses, beta=0.5, average='weighted', zero_division=1)
+    f_macro = fbeta_score(correct, guesses, beta=1, average='macro', zero_division=1)
     acc = accuracy_score(correct, guesses)
-    vals = [acc, macro_prec, macro_rcl, macro_f, fbeta]
-    conf = confusion_matrix(correct, guesses)
+    vals = [acc, prec, rcl, f1, f_macro]
+    # conf = confusion_matrix(correct, guesses)
     corr_guess = ""
     for i, x in enumerate(correct):
         corr_guess += "\n" + x + " > " + guesses[i]
     conf = corr_guess
+    # print (classification_report(correct, guesses))
+    return vals, f1, conf
 
-    return vals, macro_f, conf
 
-
-def classification_test(lang, easy=False):
+def classification_test(lang, easy=False, confm=False):
     print("\n" + lang + ">>")
     data = load_langdata(lang)
     authors_novels, authors, novels, chunks = a_n(lang, plus=True)
@@ -65,21 +66,23 @@ def classification_test(lang, easy=False):
                         df.at[x, y] = np.inf
 
         df = df.drop(index=drop_items)
+        # print(df_name)
         vals, f1, conf = classify_and_report(df)
         results[df_name] = vals
-        confusion[df_name] = f1, conf
-
+        # confusion[df_name] = f1, conf
+        confusion[df_name] = vals[0], conf
     base_top, base_conf = top(confusion, baseline)
     imp_top, inp_conf = top(confusion, comb+weighted)
 
-    print("\t".join(["model", "acc", "prec", "rec", "f-1", "f-0.5"]))
+    print("\t".join(["model", "acc", "prec", "rec", "f-1", "f1-macro"]))
 
     for df_name in results:
         print(df_name + "\t" + "\t".join([str(round(x, 4)) for x in results[df_name]]))
-    print("best base > " + base_top + " > ")
-    print(base_conf)
-    print("best new > " + imp_top + " > ")
-    print(inp_conf)
+    if confm:
+        print("best base > " + base_top + " > ")
+        print(base_conf)
+        print("best new > " + imp_top + " > ")
+        print(inp_conf)
 
 
 def top(dic, list):
@@ -293,3 +296,4 @@ def main():
 
 
 all_classification_report()
+#classification_test("slv", confm=False)
