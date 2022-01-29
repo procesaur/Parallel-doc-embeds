@@ -30,7 +30,7 @@ def classify_and_report(df):
     return vals, f1, conf
 
 
-def classification_test(lang, easy=False, confm=False):
+def classification_test(lang, confm=False):
     print("\n" + lang + ">>")
     data = load_langdata(lang)
     authors_novels, authors, novels, chunks = a_n(lang, plus=True)
@@ -71,7 +71,9 @@ def classification_test(lang, easy=False, confm=False):
         results[df_name] = vals
         # confusion[df_name] = f1, conf
         confusion[df_name] = vals[0], conf
+
     base_top, base_conf = top(confusion, baseline)
+    base_top, base_conf = top(confusion, ["word"])
     imp_top, inp_conf = top(confusion, comb+weighted)
 
     print("\t".join(["model", "acc", "prec", "rec", "f-1", "f1-macro"]))
@@ -195,10 +197,10 @@ def generate_csvs_with_weights(lang_weights, lang_apply, bert=False, exc=""):
     df.to_csv(path_or_buf=path_apply + "/weights_" + lang_weights + ".csv", sep=" ", float_format='%.7f')
 
 
-def all_classification_report():
+def all_classification_report(cm=False):
     langs = get_langs()
     for lang in langs:
-        classification_test(lang)
+        classification_test(lang, cm)
 
 
 def get_test_set(authors_novels):
@@ -295,5 +297,5 @@ def main():
     all_classification_report()
 
 
-all_classification_report()
-#classification_test("slv", confm=False)
+# all_classification_report(cm=True)
+main()
