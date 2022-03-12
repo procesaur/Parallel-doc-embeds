@@ -1,37 +1,18 @@
-## Welcome to GitHub Pages
+# parallel-doc-embeds
 
-You can use the [editor on GitHub](https://github.com/procesaur/parallel-doc-embeds/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
+this repository is created to ease the replication of results (and further reasearch on the subject) of
+Parallel Stylometric Document Embeddings with Deep Learning based Language Models in Literary Authorship Attribution
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+abstract:This paper explores effectiveness of parallel stylometric document embeddings in solving the authorship attribution task by testing a novel approach on literary texts in seven different languages, totaling in 7,051 unique 10,000-token chunks from 700 PoS and lemma annotated documents. We used these documents to produce four document embedding models using stylo R package (word-based, lemma-based, PoS-trigrams-based and PoS-mask-based) and one document embedding model using mBERT for each of seven languages. We created further derivations of these embeddings in the form of average, product, minimum, maximum and vector norm of these document embedding matrices and tested them both including and excluding the mBERT-based document embeddings for each language. Finally, we trained several perceptrons on the portions of the dataset in order to procure adequate weights for a weighted combination approach. We tested standalone (two baselines) and composite embeddings for classification accuracy, precision, recall, weithed and macro-averaged $F_1$-score, compared them with one another and have found that for each language most of our methods outperform the baselines (with a couple of methods outperforming all baselines for all languages), with or without mBERT inputs which are found to have no positive impact on the results of our combination methods.
 
-### Markdown
+in order to reproduce the results:
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+(0. install python, r, and the package requiremnts)
 
-```markdown
-Syntax highlighted code block
+if you do not want to recreate the embeddings find them in https://github.com/procesaur/parallel-doc-embeds/tree/main/data/document_embeds and skip steps 1, 2 and 3
 
-# Header 1
-## Header 2
-### Header 3
+1. unzip chunks from https://github.com/procesaur/parallel-doc-embeds/tree/main/data/zipped_chunks into folder /data/chunks
+2. run https://github.com/procesaur/parallel-doc-embeds/blob/main/data/get_stylo_dist.R in order to produce stylo-based document embeddings
+3. run https://github.com/procesaur/parallel-doc-embeds/blob/main/bert_embeds.py in order to produce mbert-based chunks
 
-- Bulleted
-- List
-
-1. Numbered
-2. List
-
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
-```
-
-For more details see [Basic writing and formatting syntax](https://docs.github.com/en/github/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax).
-
-### Jekyll Themes
-
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/procesaur/parallel-doc-embeds/settings/pages). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
-
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://support.github.com/contact) and we’ll help you sort it out.
+4. run main function from main.py in order to procure the classification results for each language and each embedding
